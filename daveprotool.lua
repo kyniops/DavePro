@@ -906,7 +906,7 @@ function Library:CreateWindow()
             currentTab = {Btn = tabBtn, Frame = tabFrame, Indicator = indicator}
         end)
         
-        return tabFrame
+        return tabFrame, tabBtn
     end
     
     local CloseBtn = Instance.new("TextButton")
@@ -1131,8 +1131,12 @@ function Library:CreateWindow()
     local MovementTab = createTab("Mouvement", "👟")
     local CombatTab = createTab("Combat", "⚔️")
     local VisualsTab = createTab("Visuels", "✨")
+    local TeleportTab, TeleportBtn = createTab("Téléportation", "📍")
+    local ScriptsTab = createTab("Scripts", "📜")
     local TriggerTab = createTab("Trigger", "⚡")
     local MiscTab = createTab("Divers", "🛠️")
+    
+    local selectedTeleportPlayer = nil
     
     -- Aimbot Content
     addToggle(AimbotTab, "Activer Aimbot", Config.Aimbot.Enabled, function(v) Config.Aimbot.Enabled = v if FOVCircle then FOVCircle.Visible = v and Config.Aimbot.ShowFOV end end)
@@ -1313,6 +1317,88 @@ function Library:CreateWindow()
     addButton(MiscTab, "Reset Config", function() 
         log("Configuration réinitialisée")
         -- Implémenter la réinitialisation si nécessaire
+    end)
+
+    -- Teleportation Content
+    local playerListFrame = Instance.new("Frame")
+    playerListFrame.Size = UDim2.new(1, -10, 0, 200)
+    playerListFrame.BackgroundColor3 = Theme.Secondary
+    playerListFrame.Parent = TeleportTab
+    Instance.new("UICorner", playerListFrame).CornerRadius = UDim.new(0, 4)
+
+    local playerListScroll = Instance.new("ScrollingFrame")
+    playerListScroll.Size = UDim2.new(1, -10, 1, -40)
+    playerListScroll.Position = UDim2.new(0, 5, 0, 35)
+    playerListScroll.BackgroundTransparency = 1
+    playerListScroll.ScrollBarThickness = 2
+    playerListScroll.Parent = playerListFrame
+    
+    local playerListLayout = Instance.new("UIListLayout", playerListScroll)
+    playerListLayout.Padding = UDim.new(0, 2)
+
+    local playerLabel = Instance.new("TextLabel")
+    playerLabel.Size = UDim2.new(1, -10, 0, 30)
+    playerLabel.Position = UDim2.new(0, 10, 0, 0)
+    playerLabel.BackgroundTransparency = 1
+    playerLabel.Text = "SÉLECTIONNER UN JOUEUR"
+    playerLabel.TextColor3 = Theme.TextDim
+    playerLabel.Font = Enum.Font.GothamSemibold
+    playerLabel.TextSize = 10
+    playerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    playerLabel.Parent = playerListFrame
+
+    local function refreshPlayerList()
+        for _, child in pairs(playerListScroll:GetChildren()) do
+            if child:IsA("TextButton") then child:Destroy() end
+        end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                local pBtn = Instance.new("TextButton")
+                pBtn.Size = UDim2.new(1, -10, 0, 25)
+                pBtn.BackgroundColor3 = Theme.Hover
+                pBtn.BackgroundTransparency = 0.5
+                pBtn.Text = p.Name
+                pBtn.TextColor3 = Theme.Text
+                pBtn.Font = Enum.Font.Gotham
+                pBtn.TextSize = 12
+                pBtn.Parent = playerListScroll
+                Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 4)
+                
+                pBtn.MouseButton1Click:Connect(function()
+                    selectedTeleportPlayer = p
+                    playerLabel.Text = "CIBLE : " .. p.Name:upper()
+                    log("Joueur sélectionné : " .. p.Name)
+                end)
+            end
+        end
+        playerListScroll.CanvasSize = UDim2.new(0, 0, 0, playerListLayout.AbsoluteContentSize.Y)
+    end
+
+    addButton(TeleportTab, "Rafraîchir la liste", refreshPlayerList)
+    addButton(TeleportTab, "Téléporter vers le joueur", function()
+        if selectedTeleportPlayer and selectedTeleportPlayer.Character and selectedTeleportPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = selectedTeleportPlayer.Character.HumanoidRootPart.CFrame
+                log("Téléporté vers " .. selectedTeleportPlayer.Name)
+            else
+                log("Erreur: Votre personnage n'est pas prêt")
+            end
+        else
+            log("Erreur: Aucun joueur sélectionné ou joueur hors ligne")
+        end
+    end)
+    
+    TeleportBtn.MouseButton1Click:Connect(refreshPlayerList)
+     refreshPlayerList()
+     
+     Players.PlayerAdded:Connect(refreshPlayerList)
+     Players.PlayerRemoving:Connect(refreshPlayerList)
+ 
+     -- Scripts Content
+    addButton(ScriptsTab, "Blox Fruit", function()
+        log("Lancement de Blox Fruit...")
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/TheDarkoneMarcillisePex/Other-Scripts/refs/heads/main/Bloxfruits%20script"))()
     end)
 
     -- Initialisation du premier onglet
