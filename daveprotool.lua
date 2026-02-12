@@ -39,7 +39,8 @@ local Config = {
         Tracers = false,
         MaxDistance = 1000,
         BoxColor = Color3.fromRGB(255, 255, 255),
-        SkelColor = Color3.fromRGB(255, 255, 255)
+        SkelColor = Color3.fromRGB(255, 255, 255),
+        Color = {R = 255, G = 255, B = 255}
     },
     Triggerbot = {
         Enabled = false,
@@ -53,7 +54,6 @@ local Config = {
             Key = Enum.KeyCode.F,
             Speed = 50,
             AscendSpeed = 30,
-            MaxAltitude = 500,
             EnergyEnabled = false,
             Energy = 100,
             MaxEnergy = 100
@@ -103,7 +103,14 @@ local Config = {
         Chams = false,
         ChamsColor = Color3.fromRGB(255, 255, 255),
         FOVColor = Color3.fromRGB(255, 255, 255),
-        FOVTransparency = 0.5
+        FOVTransparency = 0.5,
+        FOVColorRGB = {R = 255, G = 255, B = 255},
+        AccentColor = {R = 255, G = 255, B = 255}
+    },
+    Misc = {
+        AntiAFK = true,
+        Gravity = 196.2,
+        FPSCap = 60
     }
 }
 
@@ -268,7 +275,7 @@ local function aimAt(part, isInitial)
     if part.Name == "Head" then targetPos = targetPos + Vector3.new(0, 0.1, 0) end
     
     local targetCF = CFrame.lookAt(Camera.CFrame.Position, targetPos)
-    local lerpAmount = isInitial and 0.2 or (1 - Config.Aimbot.Smoothness)
+    local lerpAmount = isInitial and 1 or (1 - Config.Aimbot.Smoothness)
     Camera.CFrame = Camera.CFrame:Lerp(targetCF, math.clamp(lerpAmount, 0.01, 1))
 end
 
@@ -278,26 +285,12 @@ local function aimbotUpdate()
         return 
     end
     
-    if CurrentTarget and Config.Aimbot.Sticky then
-        local p = CurrentTarget.Player
-        local char = p.Character
-        if char and char.Parent and char:FindFirstChildOfClass("Humanoid") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
-            local part = char:FindFirstChild(Config.Aimbot.TargetPart) or char:FindFirstChild("Head")
-            if part and isVisible(part) then
-                local screenPos, onScreen = worldToScreen(part.Position)
-                local center = Vector2.new(getCamera().ViewportSize.X/2, getCamera().ViewportSize.Y/2)
-                if onScreen and (screenPos - center).Magnitude <= Config.Aimbot.FOV * 1.5 then
-                    aimAt(part, false)
-                    return
-                end
-            end
-        end
-    end
-    
     local target = getClosestPlayerInFOV()
     if target then
         CurrentTarget = target
-        aimAt(target.Part, true)
+        aimAt(target.Part, false)
+    else
+        CurrentTarget = nil
     end
 end
 
@@ -416,7 +409,8 @@ local function updateESP()
             data.Box.R.Visible, data.Box.R.From, data.Box.R.To = boxVis, tr, br
             
             if boxVis then
-                for _, l in pairs(data.Box) do l.Color = Config.ESP.BoxColor end
+                local espColor = Color3.fromRGB(Config.ESP.Color.R, Config.ESP.Color.G, Config.ESP.Color.B)
+                for _, l in pairs(data.Box) do l.Color = espColor end
             end
             
             if Config.ESP.Health then
@@ -460,7 +454,7 @@ local function updateESP()
                                 line.Visible = true
                                 line.From = s1
                                 line.To = s2
-                                line.Color = Config.ESP.SkelColor
+                                line.Color = Color3.fromRGB(Config.ESP.Color.R, Config.ESP.Color.G, Config.ESP.Color.B)
                             else
                                 line.Visible = false
                             end
@@ -578,10 +572,6 @@ local function updateMovement()
         end
         
         if FlyGyro then FlyGyro.CFrame = cam.CFrame end
-        
-        if hrp.Position.Y > Config.Movement.Fly.MaxAltitude then
-            hrp.CFrame = CFrame.new(hrp.Position.X, Config.Movement.Fly.MaxAltitude, hrp.Position.Z)
-        end
     else
         if Config.Movement.Fly.EnergyEnabled then
             Config.Movement.Fly.Energy = math.min(Config.Movement.Fly.MaxEnergy, Config.Movement.Fly.Energy + 0.05)
@@ -705,20 +695,28 @@ local function updateHitboxes()
             if not box or box.Parent ~= char then
                 if box then box:Destroy() end
                 box = Instance.new("Part")
-                box.Name = "Head"
+                box.Name = "HitboxPart"
                 box.CastShadow = false
                 box.CanCollide = false
                 box.CanQuery = true
-                box.Anchored = true
+                box.Anchored = false -- Changé à false
                 box.Transparency = Config.Combat.HitboxExpander.Transparency
                 box.Material = Enum.Material.ForceField
                 box.Parent = char
+                
+                -- Ajout d'une soudure (Weld)
+                local weld = Instance.new("Weld")
+                weld.Part0 = hrp
+                weld.Part1 = box
+                weld.C0 = CFrame.new(0, 0, 0)
+                weld.Parent = box
+                
                 Hitboxes[player] = box
             end
 
             local sizeMultiplier = Config.Combat.HitboxExpander.Multiplier
-            box.Size = Vector3.new(4 * sizeMultiplier, 6 * sizeMultiplier, 4 * sizeMultiplier)
-            box.CFrame = hrp.CFrame
+            box.Size = Vector3.new(2 * sizeMultiplier, 2 * sizeMultiplier, 2 * sizeMultiplier) -- Taille plus raisonnable
+            -- box.CFrame = hrp.CFrame -- Plus besoin avec le Weld
             box.Color = Config.Combat.HitboxExpander.Color
             box.Transparency = Config.Combat.HitboxExpander.Transparency
         else
@@ -819,17 +817,17 @@ function Library:CreateWindow()
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 0, 60)
     Title.BackgroundTransparency = 1
-    Title.Text = "PRO TOOL"
+    Title.Text = "DAVE PRO TOOL"
     Title.TextColor3 = Theme.Accent
     Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 20
+    Title.TextSize = 18
     Title.Parent = Sidebar
     
     local Version = Instance.new("TextLabel")
     Version.Size = UDim2.new(1, 0, 0, 20)
     Version.Position = UDim2.new(0, 0, 1, -25)
     Version.BackgroundTransparency = 1
-    Version.Text = "V3.3 | FIXED"
+    Version.Text = "VERSION B&W"
     Version.TextColor3 = Theme.TextDim
     Version.Font = Enum.Font.Gotham
     Version.TextSize = 10
@@ -1164,16 +1162,107 @@ function Library:CreateWindow()
     addToggle(VisualsTab, "FullBright (Lumière)", Config.Visuals.FullBright, function(v) Config.Visuals.FullBright = v end)
     addToggle(VisualsTab, "No Fog (Pas de brouillard)", Config.Visuals.NoFog, function(v) Config.Visuals.NoFog = v end)
     addSlider(VisualsTab, "Transparence FOV", 0, 1, Config.Visuals.FOVTransparency, function(v) Config.Visuals.FOVTransparency = v end)
-    addButton(VisualsTab, "Couleur FOV: Blanc", function() Config.Visuals.FOVColor = Color3.new(1,1,1) end)
-    addButton(VisualsTab, "Couleur FOV: Rouge", function() Config.Visuals.FOVColor = Color3.new(1,0,0) end)
-    addButton(VisualsTab, "Couleur ESP: Blanc", function() Config.ESP.BoxColor = Color3.new(1,1,1) Config.ESP.SkelColor = Color3.new(1,1,1) end)
-    addButton(VisualsTab, "Couleur ESP: Vert", function() Config.ESP.BoxColor = Color3.new(0,1,0) Config.ESP.SkelColor = Color3.new(0,1,0) end)
+    
+    local function createColorSection(parent, title, configPath, callback)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, -10, 0, 60)
+        frame.BackgroundColor3 = Theme.Secondary
+        frame.Parent = parent
+        Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -10, 0, 20)
+        label.Position = UDim2.new(0, 10, 0, 5)
+        label.BackgroundTransparency = 1
+        label.Text = title:upper()
+        label.TextColor3 = Theme.TextDim
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Font = Enum.Font.GothamSemibold
+        label.TextSize = 10
+        label.Parent = frame
+        
+        local colors = {
+            {Color3.fromRGB(255, 255, 255), "Blanc"},
+            {Color3.fromRGB(255, 0, 0), "Rouge"},
+            {Color3.fromRGB(0, 255, 0), "Vert"},
+            {Color3.fromRGB(0, 0, 255), "Bleu"},
+            {Color3.fromRGB(255, 255, 0), "Jaune"},
+            {Color3.fromRGB(255, 0, 255), "Rose"},
+            {Color3.fromRGB(0, 255, 255), "Cyan"},
+            {Color3.fromRGB(255, 165, 0), "Orange"}
+        }
+        
+        local container = Instance.new("Frame")
+        container.Size = UDim2.new(1, -20, 0, 25)
+        container.Position = UDim2.new(0, 10, 0, 25)
+        container.BackgroundTransparency = 1
+        container.Parent = frame
+        
+        local layout = Instance.new("UIListLayout", container)
+        layout.FillDirection = Enum.FillDirection.Horizontal
+        layout.Padding = UDim.new(0, 5)
+        layout.VerticalAlignment = Enum.VerticalAlignment.Center
+        
+        for _, data in pairs(colors) do
+            local color = data[1]
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(0, 20, 0, 20)
+            btn.BackgroundColor3 = color
+            btn.Text = ""
+            btn.Parent = container
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+            
+            btn.MouseButton1Click:Connect(function()
+                configPath.R, configPath.G, configPath.B = color.R * 255, color.G * 255, color.B * 255
+                if callback then callback(color) end
+                log("Couleur " .. title .. " mise à jour: " .. data[2])
+            end)
+        end
+    end
+
+    local function updateMenuTheme(color)
+        Theme.Accent = color
+        if RestoreBtn then RestoreBtn.TextColor3 = color end
+        if RestoreStroke then RestoreStroke.Color = color end
+        if Title then Title.TextColor3 = color end
+        
+        -- Mise à jour dynamique des éléments visuels
+        for _, obj in pairs(ScreenGui:GetDescendants()) do
+            if obj:IsA("TextButton") and obj.BackgroundColor3 == Theme.Accent then
+                obj.BackgroundColor3 = color
+            elseif obj:IsA("UIStroke") and obj.Color == Theme.Accent then
+                obj.Color = color
+            elseif obj:IsA("TextLabel") and obj.TextColor3 == Theme.Accent then
+                obj.TextColor3 = color
+            elseif obj:IsA("ScrollingFrame") and obj.ScrollBarImageColor3 == Theme.Accent then
+                obj.ScrollBarImageColor3 = color
+            elseif obj:IsA("Frame") and obj.BackgroundColor3 == Theme.Accent then
+                obj.BackgroundColor3 = color
+            end
+        end
+        
+        -- S'assurer que les onglets sélectionnés gardent la couleur
+        if currentTab then
+            currentTab.Btn.TextColor3 = color
+            currentTab.Indicator.BackgroundColor3 = color
+        end
+    end
+
+    createColorSection(VisualsTab, "Couleur Menu", Config.Visuals.AccentColor, updateMenuTheme)
+    createColorSection(VisualsTab, "Couleur ESP", Config.ESP.Color)
+    createColorSection(VisualsTab, "Couleur FOV", Config.Visuals.FOVColorRGB)
+
+    addButton(VisualsTab, "Reset Couleurs", function()
+        Config.Visuals.AccentColor = {R = 255, G = 255, B = 255}
+        Config.ESP.Color = {R = 255, G = 255, B = 255}
+        Config.Visuals.FOVColorRGB = {R = 255, G = 255, B = 255}
+        updateMenuTheme(Color3.new(1,1,1))
+    end)
 
     -- Movement Content - TOUS LES ÉLÉMENTS
     addToggle(MovementTab, "Mode Vol (Fly)", Config.Movement.Fly.Enabled, function(v) Config.Movement.Fly.Enabled = v if v == false and Flying then toggleFly() end end)
     addKeybind(MovementTab, "Touche Vol", Config.Movement.Fly.Key, function(v) Config.Movement.Fly.Key = v end)
     addSlider(MovementTab, "Vitesse Vol", 10, 200, Config.Movement.Fly.Speed, function(v) Config.Movement.Fly.Speed = v end)
-    addSlider(MovementTab, "Altitude Max", 100, 1000, Config.Movement.Fly.MaxAltitude, function(v) Config.Movement.Fly.MaxAltitude = v end)
     addToggle(MovementTab, "Sprint Amélioré", Config.Movement.Sprint.Enabled, function(v) Config.Movement.Sprint.Enabled = v end)
     addSlider(MovementTab, "Multiplicateur Sprint", 1, 5, Config.Movement.Sprint.Multiplier, function(v) Config.Movement.Sprint.Multiplier = v end)
     addToggle(MovementTab, "Super Saut", Config.Movement.SuperJump.Enabled, function(v) Config.Movement.SuperJump.Enabled = v end)
@@ -1204,6 +1293,19 @@ function Library:CreateWindow()
     addToggle(TriggerTab, "Team Check", Config.Triggerbot.TeamCheck, function(v) Config.Triggerbot.TeamCheck = v end)
 
     -- Misc Content - TOUS LES ÉLÉMENTS
+    addToggle(MiscTab, "Anti-AFK", Config.Misc.AntiAFK, function(v) Config.Misc.AntiAFK = v end)
+    addSlider(MiscTab, "Gravité", 0, 500, Config.Misc.Gravity, function(v) Config.Misc.Gravity = v workspace.Gravity = v end)
+    addSlider(MiscTab, "Cap FPS", 30, 240, Config.Misc.FPSCap, function(v) Config.Misc.FPSCap = v if setfpscap then setfpscap(v) end end)
+    addButton(MiscTab, "Teleport Random Player", function()
+        local players = Players:GetPlayers()
+        local randomPlayer = players[math.random(1, #players)]
+        if randomPlayer and randomPlayer ~= LocalPlayer and randomPlayer.Character and randomPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character:SetPrimaryPartCFrame(randomPlayer.Character.HumanoidRootPart.CFrame)
+            log("TP vers: " .. randomPlayer.Name)
+        end
+    end)
+    addButton(MiscTab, "Server Hop", serverHop)
+    addButton(MiscTab, "Rejoindre Serveur", rejoinServer)
     addToggle(MiscTab, "Anti-Cheat Bypass", true, function(v) log("Anti-cheat bypass: " .. tostring(v)) end)
     addToggle(MiscTab, "Consommation Énergie Vol", Config.Movement.Fly.EnergyEnabled, function(v) Config.Movement.Fly.EnergyEnabled = v end)
     addButton(MiscTab, "Sauvegarder Config", saveConfig)
@@ -1225,6 +1327,47 @@ function Library:CreateWindow()
         currentTab = {Btn = firstTabBtn, Frame = AimbotTab, Indicator = indicator}
     end
 end
+
+-- ═══════════════════════════════════════════════════════════
+-- SYSTÈME DIVERS & TOOLS
+-- ═══════════════════════════════════════════════════════════
+
+local function setupAntiAFK()
+    local VirtualUser = game:GetService("VirtualUser")
+    LocalPlayer.Idled:Connect(function()
+        if Config.Misc.AntiAFK then
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            log("Anti-AFK: Action effectuée")
+        end
+    end)
+end
+
+local function serverHop()
+    local HttpService = game:GetService("HttpService")
+    local TeleportService = game:GetService("TeleportService")
+    local PlaceId = game.PlaceId
+    
+    local success, servers = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+    end)
+    
+    if success and servers and servers.data then
+        for _, server in pairs(servers.data) do
+            if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                TeleportService:TeleportToPlaceInstance(PlaceId, server.id)
+                return
+            end
+        end
+    end
+    log("Aucun serveur trouvé pour le hop")
+end
+
+local function rejoinServer()
+    game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
+end
+
+setupAntiAFK()
 
 -- ═══════════════════════════════════════════════════════════
 -- BOUCLE PRINCIPALE ET ÉVÉNEMENTS
@@ -1260,7 +1403,7 @@ RunService.RenderStepped:Connect(function()
         local cam = getCamera()
         FOVCircle.Position = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
         FOVCircle.Radius = Config.Aimbot.FOV
-        FOVCircle.Color = Config.Visuals.FOVColor
+        FOVCircle.Color = Color3.fromRGB(Config.Visuals.FOVColorRGB.R, Config.Visuals.FOVColorRGB.G, Config.Visuals.FOVColorRGB.B)
         FOVCircle.Transparency = Config.Visuals.FOVTransparency
     end
 end)
@@ -1271,7 +1414,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     
     if input.KeyCode == Config.Aimbot.Key or input.UserInputType == Config.Aimbot.Key then 
-        AimlockPressed = not AimlockPressed 
+        AimlockPressed = not AimlockPressed
         if not AimlockPressed then CurrentTarget = nil end
     end
     
