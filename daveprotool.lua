@@ -10,6 +10,8 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
+local FpsLabel, PingLabel
+local fpsCounter = {frames = 0, last = tick(), fps = 0}
 
 local function getCamera()
     return workspace.CurrentCamera or workspace:FindFirstChildOfClass("Camera")
@@ -933,6 +935,38 @@ function Library:CreateWindow()
         RestoreBtn.Visible = false
     end)
     
+    local StatsHUD = Instance.new("Frame")
+    StatsHUD.Size = UDim2.new(0, 140, 0, 36)
+    StatsHUD.Position = UDim2.new(1, -150, 1, -45)
+    StatsHUD.BackgroundColor3 = Theme.Secondary
+    StatsHUD.Parent = MainFrame
+    Instance.new("UICorner", StatsHUD).CornerRadius = UDim.new(0, 4)
+    local hudStroke = Instance.new("UIStroke", StatsHUD)
+    hudStroke.Color = Theme.Accent
+    hudStroke.Thickness = 1
+    
+    FpsLabel = Instance.new("TextLabel")
+    FpsLabel.Size = UDim2.new(1, -10, 0, 16)
+    FpsLabel.Position = UDim2.new(0, 5, 0, 4)
+    FpsLabel.BackgroundTransparency = 1
+    FpsLabel.Text = "FPS: ..."
+    FpsLabel.TextColor3 = Theme.Text
+    FpsLabel.Font = Enum.Font.GothamSemibold
+    FpsLabel.TextSize = 11
+    FpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    FpsLabel.Parent = StatsHUD
+    
+    PingLabel = Instance.new("TextLabel")
+    PingLabel.Size = UDim2.new(1, -10, 0, 16)
+    PingLabel.Position = UDim2.new(0, 5, 0, 20)
+    PingLabel.BackgroundTransparency = 1
+    PingLabel.Text = "Ping: ..."
+    PingLabel.TextColor3 = Theme.Text
+    PingLabel.Font = Enum.Font.GothamSemibold
+    PingLabel.TextSize = 11
+    PingLabel.TextXAlignment = Enum.TextXAlignment.Left
+    PingLabel.Parent = StatsHUD
+    
     local function addToggle(parent, text, default, callback)
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(1, -10, 0, 35)
@@ -1128,12 +1162,12 @@ function Library:CreateWindow()
     -- Construction des Tabs
     local AimbotTab = createTab("Aimbot", "🎯")
     local ESPTab = createTab("ESP", "👁️")
+    local TriggerTab = createTab("Trigger", "⚡")
     local MovementTab = createTab("Mouvement", "👟")
     local CombatTab = createTab("Combat", "⚔️")
     local VisualsTab = createTab("Visuels", "✨")
     local TeleportTab, TeleportBtn = createTab("Téléportation", "📍")
     local ScriptsTab = createTab("Scripts", "📜")
-    local TriggerTab = createTab("Trigger", "⚡")
     local MiscTab = createTab("Divers", "🛠️")
     
     local selectedTeleportPlayer = nil
@@ -1300,14 +1334,7 @@ function Library:CreateWindow()
     addToggle(MiscTab, "Anti-AFK", Config.Misc.AntiAFK, function(v) Config.Misc.AntiAFK = v end)
     addSlider(MiscTab, "Gravité", 0, 500, Config.Misc.Gravity, function(v) Config.Misc.Gravity = v workspace.Gravity = v end)
     addSlider(MiscTab, "Cap FPS", 30, 240, Config.Misc.FPSCap, function(v) Config.Misc.FPSCap = v if setfpscap then setfpscap(v) end end)
-    addButton(MiscTab, "Teleport Random Player", function()
-        local players = Players:GetPlayers()
-        local randomPlayer = players[math.random(1, #players)]
-        if randomPlayer and randomPlayer ~= LocalPlayer and randomPlayer.Character and randomPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character:SetPrimaryPartCFrame(randomPlayer.Character.HumanoidRootPart.CFrame)
-            log("TP vers: " .. randomPlayer.Name)
-        end
-    end)
+    
     addButton(MiscTab, "Server Hop", serverHop)
     addButton(MiscTab, "Rejoindre Serveur", rejoinServer)
     addToggle(MiscTab, "Anti-Cheat Bypass", true, function(v) log("Anti-cheat bypass: " .. tostring(v)) end)
@@ -1386,6 +1413,17 @@ function Library:CreateWindow()
             end
         else
             log("Erreur: Aucun joueur sélectionné ou joueur hors ligne")
+        end
+    end)
+    addButton(TeleportTab, "Téléportation aléatoire", function()
+        local players = Players:GetPlayers()
+        local randomPlayer = players[math.random(1, #players)]
+        if randomPlayer and randomPlayer ~= LocalPlayer and randomPlayer.Character and randomPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = randomPlayer.Character.HumanoidRootPart.CFrame
+                log("TP vers: " .. randomPlayer.Name)
+            end
         end
     end)
     
@@ -1491,6 +1529,24 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Radius = Config.Aimbot.FOV
         FOVCircle.Color = Color3.fromRGB(Config.Visuals.FOVColorRGB.R, Config.Visuals.FOVColorRGB.G, Config.Visuals.FOVColorRGB.B)
         FOVCircle.Transparency = Config.Visuals.FOVTransparency
+    end
+    if FpsLabel and PingLabel then
+        fpsCounter.frames = fpsCounter.frames + 1
+        local now = tick()
+        if now - fpsCounter.last >= 1 then
+            fpsCounter.fps = fpsCounter.frames / (now - fpsCounter.last)
+            fpsCounter.frames = 0
+            fpsCounter.last = now
+        end
+        local pingVal = 0
+        local stats = game:GetService("Stats")
+        local net = stats and stats.Network
+        local item = net and net.ServerStatsItem and net.ServerStatsItem["Data Ping"]
+        if item and item.GetValue then
+            pingVal = math.floor(item:GetValue())
+        end
+        FpsLabel.Text = "FPS: " .. tostring(math.floor(fpsCounter.fps + 0.5))
+        PingLabel.Text = "Ping: " .. tostring(pingVal) .. " ms"
     end
 end)
 
