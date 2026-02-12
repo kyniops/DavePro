@@ -29,17 +29,20 @@ local Config = {
         MaxDistance = 1000,
         TeamCheck = false,
         VisibleCheck = true,
-        Sticky = true
+        Sticky = true,
+        AutoShoot = false
     },
     ESP = {
-        Enabled = false,
+        Enabled = true,
         Boxes = true,
         Skeleton = true,
         Health = true,
         Names = true,
         Distance = true,
-        Tracers = false,
-        MaxDistance = 1000,
+        Tracers = true,
+        MaxDistance = 5000,
+        TeamCheck = false,
+        VisibleOnly = false,
         BoxColor = Color3.fromRGB(255, 255, 255),
         SkelColor = Color3.fromRGB(255, 255, 255),
         Color = {R = 255, G = 255, B = 255}
@@ -70,7 +73,7 @@ local Config = {
         SuperJump = {
             Enabled = false,
             PowerMultiplier = 2.5,
-            DoubleJumpEnabled = true,
+            DoubleJumpEnabled = false,
             ReduceFallDamage = true
         },
         SpeedHack = {
@@ -80,7 +83,9 @@ local Config = {
         AutoJump = false,
         Bhop = false,
         NoClip = false,
-        InfiniteJump = false
+        NoClipKey = Enum.KeyCode.N,
+        InfiniteJump = false,
+        ClickTP = {Enabled = false, Key = Enum.KeyCode.LeftControl}
     },
     Combat = {
         SpinBot = {
@@ -96,7 +101,26 @@ local Config = {
             Enabled = false,
             Multiplier = 1.5,
             Transparency = 0.6,
-            Color = Color3.fromRGB(255, 0, 0)
+            Color = Color3.fromRGB(255, 0, 0),
+            ColorRGB = {R = 255, G = 0, B = 0},
+            ExpandNPC = false
+        },
+        Reach = {
+            Enabled = false,
+            Range = 30
+        },
+        KillAura = {
+            Enabled = false,
+            Range = 20,
+            Delay = 0.1
+        },
+        AutoClicker = {
+            Enabled = false,
+            CPS = 10
+        },
+        FovChanger = {
+            Enabled = false,
+            Value = 90
         }
     },
     Visuals = {
@@ -104,15 +128,30 @@ local Config = {
         NoFog = false,
         Chams = false,
         ChamsColor = Color3.fromRGB(255, 255, 255),
+        Highlight = {Enabled = false, Color = Color3.fromRGB(255, 255, 255), Transparency = 0.5},
         FOVColor = Color3.fromRGB(255, 255, 255),
         FOVTransparency = 0.5,
         FOVColorRGB = {R = 255, G = 255, B = 255},
-        AccentColor = {R = 255, G = 255, B = 255}
+        AccentColor = {R = 255, G = 255, B = 255},
+        WorldColor = {Enabled = false, Color = Color3.fromRGB(255, 255, 255)},
+        TimeChanger = {Enabled = false, Time = 12},
+        RainbowMenu = false,
+        Crosshair = {Enabled = false, Size = 15, Color = Color3.fromRGB(0, 255, 0)},
+        StreamerMode = false,
+        AntiLag = false
     },
     Misc = {
         AntiAFK = true,
         Gravity = 196.2,
-        FPSCap = 60
+        FPSCap = 60,
+        ChatSpammer = {
+            Enabled = false,
+            Message = "Dave Pro Tool On Top!",
+            Delay = 3
+        },
+        AutoBypass = true,
+        QuickExit = false,
+        Waypoints = {}
     }
 }
 
@@ -177,21 +216,23 @@ end
 local HttpService = game:GetService("HttpService")
 local ConfigFile = "ProToolConfig.json"
 
-local function saveConfig()
+local function saveConfig(name)
     if writefile then
+        local fileName = name or ConfigFile
         local success, data = pcall(function() return HttpService:JSONEncode(Config) end)
         if success then
-            writefile(ConfigFile, data)
-            log("Configuration sauvegardée")
+            writefile(fileName, data)
+            log("Configuration sauvegardée: " .. fileName)
         else
             warn("Échec de l'encodage de la config")
         end
     end
 end
 
-local function loadConfig()
-    if readfile and isfile and isfile(ConfigFile) then
-        local success, data = pcall(function() return HttpService:JSONDecode(readfile(ConfigFile)) end)
+local function loadConfig(name)
+    local fileName = name or ConfigFile
+    if readfile and isfile and isfile(fileName) then
+        local success, data = pcall(function() return HttpService:JSONDecode(readfile(fileName)) end)
         if success then
             for k, v in pairs(data) do
                 if Config[k] then
@@ -204,9 +245,11 @@ local function loadConfig()
                     end
                 end
             end
-            log("Configuration chargée")
+            log("Configuration chargée: " .. fileName)
+            return true
         end
     end
+    return false
 end
 
 -- ═══════════════════════════════════════════════════════════
@@ -291,6 +334,14 @@ local function aimbotUpdate()
     if target then
         CurrentTarget = target
         aimAt(target.Part, false)
+        
+        -- AutoShoot logic
+        if Config.Aimbot.AutoShoot then
+            local VirtualInputManager = game:GetService("VirtualInputManager")
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        end
     else
         CurrentTarget = nil
     end
@@ -391,6 +442,36 @@ local function updateESP()
             data.Text.Visible = false
             continue
         end
+
+        if Config.ESP.TeamCheck and player.Team == LocalPlayer.Team then
+            for _, v in pairs(data.Box) do v.Visible = false end
+            for _, v in pairs(data.HealthBar) do v.Visible = false end
+            for _, v in pairs(data.Skeleton) do v.Visible = false end
+            if data.Tracer then data.Tracer.Visible = false end
+            if data.Highlight then data.Highlight.Enabled = false end
+            data.Text.Visible = false
+            continue
+        end
+
+        if Config.ESP.VisibleOnly then
+            local isVisible = false
+            local params = RaycastParams.new()
+            params.FilterType = Enum.RaycastFilterType.Exclude
+            params.FilterDescendantsInstances = {char, LocalPlayer.Character}
+            
+            local result = workspace:Raycast(cam.CFrame.Position, hrp.Position - cam.CFrame.Position, params)
+            if not result then isVisible = true end
+            
+            if not isVisible then
+                for _, v in pairs(data.Box) do v.Visible = false end
+                for _, v in pairs(data.HealthBar) do v.Visible = false end
+                for _, v in pairs(data.Skeleton) do v.Visible = false end
+                if data.Tracer then data.Tracer.Visible = false end
+                if data.Highlight then data.Highlight.Enabled = false end
+                data.Text.Visible = false
+                continue
+            end
+        end
         
         local screenPos, onScreen = worldToScreen(hrp.Position)
         if onScreen then
@@ -490,7 +571,7 @@ local function updateESP()
                 data.Tracer.Visible = true
                 data.Tracer.From = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y)
                 data.Tracer.To = screenPos
-                data.Tracer.Color = Config.ESP.BoxColor
+                data.Tracer.Color = Color3.fromRGB(Config.ESP.Color.R, Config.ESP.Color.G, Config.ESP.Color.B)
             else
                 data.Tracer.Visible = false
             end
@@ -502,7 +583,10 @@ local function updateESP()
                     data.Text.Visible = true
                     data.Text.Position = headPos
                     local t = ""
-                    if Config.ESP.Names then t = t .. player.Name .. "\n" end
+                    if Config.ESP.Names then 
+                        local displayName = Config.Visuals.StreamerMode and "Joueur" or player.Name
+                        t = t .. displayName .. "\n" 
+                    end
                     if Config.ESP.Distance then t = t .. "[" .. math.floor(distance) .. "m]" end
                     data.Text.Text = t
                     data.Text.Color = Color3.new(1,1,1)
@@ -595,11 +679,17 @@ local function updateMovement()
     end
 
     if Config.Movement.AutoJump or Config.Movement.Bhop then
-        if hum.FloorMaterial ~= Enum.Material.Air then
+        if hum.FloorMaterial ~= Enum.Material.Air or hum:GetState() == Enum.HumanoidStateType.Landed then
             if Config.Movement.AutoJump then
-                local ray = Ray.new(hrp.Position, hrp.CFrame.LookVector * 5 + Vector3.new(0, -5, 0))
-                local hit = workspace:FindPartOnRay(ray, char)
-                if not hit then hum.Jump = true end
+                -- Saut automatique si obstacle devant
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {char}
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                
+                local rayResult = workspace:Raycast(hrp.Position, hrp.CFrame.LookVector * 5, rayParams)
+                if rayResult then
+                    hum.Jump = true
+                end
             end
             if Config.Movement.Bhop and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
                 hum.Jump = true
@@ -678,6 +768,45 @@ local function updateHitboxes()
         return
     end
 
+    local function processHitbox(entity, char)
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+
+        if hrp and hum and hum.Health > 0 then
+            local box = Hitboxes[entity]
+            if not box or box.Parent ~= char then
+                if box then box:Destroy() end
+                box = Instance.new("Part")
+                box.Name = "HitboxPart"
+                box.CastShadow = false
+                box.CanCollide = false
+                box.CanQuery = true
+                box.Anchored = false
+                box.Transparency = Config.Combat.HitboxExpander.Transparency
+                box.Material = Enum.Material.ForceField
+                box.Parent = char
+                
+                local weld = Instance.new("Weld")
+                weld.Part0 = hrp
+                weld.Part1 = box
+                weld.C0 = CFrame.new(0, 0, 0)
+                weld.Parent = box
+                
+                Hitboxes[entity] = box
+            end
+
+            local sizeMultiplier = Config.Combat.HitboxExpander.Multiplier
+            box.Size = Vector3.new(2 * sizeMultiplier, 2 * sizeMultiplier, 2 * sizeMultiplier)
+            box.Color = Config.Combat.HitboxExpander.Color
+            box.Transparency = Config.Combat.HitboxExpander.Transparency
+        else
+            if Hitboxes[entity] then
+                Hitboxes[entity]:Destroy()
+                Hitboxes[entity] = nil
+            end
+        end
+    end
+
     for _, player in pairs(Players:GetPlayers()) do
         if player == LocalPlayer then continue end
         if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team then
@@ -689,44 +818,121 @@ local function updateHitboxes()
         end
 
         local char = player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if char then
+            processHitbox(player, char)
+        end
+    end
 
-        if hrp and hum and hum.Health > 0 then
-            local box = Hitboxes[player]
-            if not box or box.Parent ~= char then
-                if box then box:Destroy() end
-                box = Instance.new("Part")
-                box.Name = "HitboxPart"
-                box.CastShadow = false
-                box.CanCollide = false
-                box.CanQuery = true
-                box.Anchored = false -- Changé à false
-                box.Transparency = Config.Combat.HitboxExpander.Transparency
-                box.Material = Enum.Material.ForceField
-                box.Parent = char
-                
-                -- Ajout d'une soudure (Weld)
-                local weld = Instance.new("Weld")
-                weld.Part0 = hrp
-                weld.Part1 = box
-                weld.C0 = CFrame.new(0, 0, 0)
-                weld.Parent = box
-                
-                Hitboxes[player] = box
-            end
-
-            local sizeMultiplier = Config.Combat.HitboxExpander.Multiplier
-            box.Size = Vector3.new(2 * sizeMultiplier, 2 * sizeMultiplier, 2 * sizeMultiplier) -- Taille plus raisonnable
-            -- box.CFrame = hrp.CFrame -- Plus besoin avec le Weld
-            box.Color = Config.Combat.HitboxExpander.Color
-            box.Transparency = Config.Combat.HitboxExpander.Transparency
-        else
-            if Hitboxes[player] then
-                Hitboxes[player]:Destroy()
-                Hitboxes[player] = nil
+    if Config.Combat.HitboxExpander.ExpandNPC then
+        for _, obj in pairs(workspace:GetChildren()) do
+            if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(obj) then
+                processHitbox(obj, obj)
             end
         end
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════
+-- SYSTÈME COMBAT AVANCÉ
+-- ═══════════════════════════════════════════════════════════
+
+local lastClick = 0
+local function autoClickerUpdate()
+    if not Config.Combat.AutoClicker.Enabled then return end
+    
+    -- Empêcher le clic si la souris est sur le menu
+    if ScreenGui then
+        local mousePos = UserInputService:GetMouseLocation()
+        local guis = game:GetService("CoreGui"):GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
+        local overMenu = false
+        for _, gui in pairs(guis) do
+            if gui:IsDescendantOf(ScreenGui) then
+                overMenu = true
+                break
+            end
+        end
+        if overMenu then return end
+    end
+
+    local delay = 1 / Config.Combat.AutoClicker.CPS
+    if tick() - lastClick >= delay then
+        if mouse1click then
+            mouse1click()
+            lastClick = tick()
+        end
+    end
+end
+
+local lastKillAura = 0
+local function killAuraUpdate()
+    if not Config.Combat.KillAura.Enabled then return end
+    if tick() - lastKillAura < Config.Combat.KillAura.Delay then return end
+    
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team then continue end
+        
+        local pChar = player.Character
+        local pHum = pChar and pChar:FindFirstChildOfClass("Humanoid")
+        local pHrp = pChar and pChar:FindFirstChild("HumanoidRootPart")
+        
+        if pHum and pHum.Health > 0 and pHrp then
+            local dist = (hrp.Position - pHrp.Position).Magnitude
+            if dist <= Config.Combat.KillAura.Range then
+                -- Simulation d'attaque (dépend du jeu, ici on simule un clic)
+                if mouse1click then
+                    mouse1click()
+                    lastKillAura = tick()
+                    break
+                end
+            end
+        end
+    end
+end
+
+local function reachUpdate()
+    if not Config.Combat.Reach.Enabled then return end
+    
+    local char = LocalPlayer.Character
+    local tool = char and char:FindFirstChildOfClass("Tool")
+    if tool then
+        local handle = tool:FindFirstChild("Handle") or tool:FindFirstChildOfClass("Part")
+        if handle then
+            if not handle:FindFirstChild("DaveReach") then
+                local selection = Instance.new("SelectionBox")
+                selection.Name = "DaveReach"
+                selection.Adornee = handle
+                selection.Transparency = 0.8
+                selection.Color3 = Color3.fromRGB(255, 0, 0)
+                selection.Parent = handle
+            end
+            
+            -- Augmenter la taille de la Hitbox de l'outil
+            handle.Size = Vector3.new(Config.Combat.Reach.Range, Config.Combat.Reach.Range, Config.Combat.Reach.Range)
+            handle.Massless = true
+            handle.CanCollide = false
+        end
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════
+-- SYSTÈME VISUEL AVANCÉ
+-- ═══════════════════════════════════════════════════════════
+
+local function updateWorldVisuals()
+    if Config.Visuals.WorldColor.Enabled then
+        local color = Config.Visuals.WorldColor.Color
+        -- Utilisation du Lighting pour changer l'ambiance
+        game.Lighting.Ambient = color
+        game.Lighting.OutdoorAmbient = color
+    end
+    
+    if Config.Visuals.TimeChanger.Enabled then
+        game.Lighting.ClockTime = Config.Visuals.TimeChanger.Time
     end
 end
 
@@ -737,6 +943,16 @@ end
 local lastShot = 0
 local function triggerbotUpdate()
     if not Config.Triggerbot.Enabled or not TriggerActive then return end
+    
+    -- Empêcher le tir si la souris est sur le menu
+    if ScreenGui then
+        local mousePos = UserInputService:GetMouseLocation()
+        local guis = game:GetService("CoreGui"):GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
+        for _, gui in pairs(guis) do
+            if gui:IsDescendantOf(ScreenGui) then return end
+        end
+    end
+
     if tick() - lastShot < Config.Triggerbot.Delay then return end
     
     local mouse = LocalPlayer:GetMouse()
@@ -763,7 +979,7 @@ end
 local Library = {}
 
 function Library:CreateWindow()
-    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ProToolUI"
     ScreenGui.Parent = game.CoreGui
     ScreenGui.ResetOnSpawn = false
@@ -778,7 +994,7 @@ function Library:CreateWindow()
         Hover = Color3.fromRGB(40, 40, 40)
     }
 
-    local RestoreBtn = Instance.new("TextButton")
+    RestoreBtn = Instance.new("TextButton")
     RestoreBtn.Name = "RestoreBtn"
     RestoreBtn.Size = UDim2.new(0, 40, 0, 40)
     RestoreBtn.Position = UDim2.new(0, 20, 0.5, -20)
@@ -794,7 +1010,7 @@ function Library:CreateWindow()
     RestoreStroke.Color = Theme.Accent
     RestoreStroke.Thickness = 1
     
-    local MainFrame = Instance.new("Frame")
+    MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 550, 0, 420)
     MainFrame.Position = UDim2.new(0.5, -275, 0.5, -210)
@@ -939,11 +1155,13 @@ function Library:CreateWindow()
     StatsHUD.Size = UDim2.new(0, 140, 0, 36)
     StatsHUD.Position = UDim2.new(1, -150, 1, -45)
     StatsHUD.BackgroundColor3 = Theme.Secondary
+    StatsHUD.Visible = false
     StatsHUD.Parent = MainFrame
     Instance.new("UICorner", StatsHUD).CornerRadius = UDim.new(0, 4)
     local hudStroke = Instance.new("UIStroke", StatsHUD)
     hudStroke.Color = Theme.Accent
     hudStroke.Thickness = 1
+    hudStroke.Enabled = false
     
     FpsLabel = Instance.new("TextLabel")
     FpsLabel.Size = UDim2.new(1, -10, 0, 16)
@@ -1145,6 +1363,43 @@ function Library:CreateWindow()
         end)
     end
 
+    local function addInput(parent, text, default, callback)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, -10, 0, 50)
+        frame.BackgroundColor3 = Theme.Secondary
+        frame.Parent = parent
+        Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -20, 0, 25)
+        label.Position = UDim2.new(0, 10, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text:upper()
+        label.TextColor3 = Theme.TextDim
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Font = Enum.Font.GothamSemibold
+        label.TextSize = 10
+        label.Parent = frame
+        
+        local input = Instance.new("TextBox")
+        input.Size = UDim2.new(1, -20, 0, 20)
+        input.Position = UDim2.new(0, 10, 0, 25)
+        input.BackgroundColor3 = Theme.Background
+        input.Text = default
+        input.TextColor3 = Theme.Accent
+        input.Font = Enum.Font.Gotham
+        input.TextSize = 12
+        input.Parent = frame
+        Instance.new("UICorner", input).CornerRadius = UDim.new(0, 4)
+        
+        input.FocusLost:Connect(function(enter)
+            if enter then
+                callback(input.Text)
+                log("Valeur mise à jour: " .. input.Text)
+            end
+        end)
+    end
+
     local function addButton(parent, text, callback)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, -10, 0, 35)
@@ -1181,6 +1436,7 @@ function Library:CreateWindow()
     addToggle(AimbotTab, "Team Check", Config.Aimbot.TeamCheck, function(v) Config.Aimbot.TeamCheck = v end)
     addToggle(AimbotTab, "Visible Check", Config.Aimbot.VisibleCheck, function(v) Config.Aimbot.VisibleCheck = v end)
     addToggle(AimbotTab, "Sticky Lock", Config.Aimbot.Sticky, function(v) Config.Aimbot.Sticky = v end)
+    addToggle(AimbotTab, "Auto Shoot", Config.Aimbot.AutoShoot, function(v) Config.Aimbot.AutoShoot = v end)
     addSlider(AimbotTab, "Distance Max", 100, 5000, Config.Aimbot.MaxDistance, function(v) Config.Aimbot.MaxDistance = v end)
     addButton(AimbotTab, "Cible: Tête", function() Config.Aimbot.TargetPart = "Head" log("Cible: Head") end)
     addButton(AimbotTab, "Cible: Torse", function() Config.Aimbot.TargetPart = "HumanoidRootPart" log("Cible: Torso") end)
@@ -1193,13 +1449,25 @@ function Library:CreateWindow()
     addToggle(ESPTab, "Noms", Config.ESP.Names, function(v) Config.ESP.Names = v end)
     addToggle(ESPTab, "Distance", Config.ESP.Distance, function(v) Config.ESP.Distance = v end)
     addToggle(ESPTab, "Traceurs (Tracers)", Config.ESP.Tracers, function(v) Config.ESP.Tracers = v end)
-    addSlider(ESPTab, "Distance Max", 100, 5000, Config.ESP.MaxDistance, function(v) Config.ESP.MaxDistance = v end)
+    addToggle(ESPTab, "Team Check", Config.ESP.TeamCheck, function(v) Config.ESP.TeamCheck = v end)
+    addToggle(ESPTab, "Visible Uniquement", Config.ESP.VisibleOnly, function(v) Config.ESP.VisibleOnly = v end)
+    addToggle(ESPTab, "ESP Loot/Items", false, function(v) log("ESP Loot: " .. tostring(v)) end)
+    addSlider(ESPTab, "Distance Max", 100, 10000, Config.ESP.MaxDistance, function(v) Config.ESP.MaxDistance = v end)
     
     -- Visuals Content
     addToggle(VisualsTab, "Chams (Wallhack)", Config.Visuals.Chams, function(v) Config.Visuals.Chams = v end)
+    addToggle(VisualsTab, "Highlight ESP", Config.Visuals.Highlight.Enabled, function(v) Config.Visuals.Highlight.Enabled = v end)
     addToggle(VisualsTab, "FullBright (Lumière)", Config.Visuals.FullBright, function(v) Config.Visuals.FullBright = v end)
     addToggle(VisualsTab, "No Fog (Pas de brouillard)", Config.Visuals.NoFog, function(v) Config.Visuals.NoFog = v end)
     addSlider(VisualsTab, "Transparence FOV", 0, 1, Config.Visuals.FOVTransparency, function(v) Config.Visuals.FOVTransparency = v end)
+    
+    addToggle(VisualsTab, "World Color", Config.Visuals.WorldColor.Enabled, function(v) Config.Visuals.WorldColor.Enabled = v end)
+    addToggle(VisualsTab, "Time Changer", Config.Visuals.TimeChanger.Enabled, function(v) Config.Visuals.TimeChanger.Enabled = v end)
+    addSlider(VisualsTab, "Heure du monde", 0, 24, Config.Visuals.TimeChanger.Time, function(v) Config.Visuals.TimeChanger.Time = v end)
+    addToggle(VisualsTab, "Menu Rainbow", Config.Visuals.RainbowMenu, function(v) Config.Visuals.RainbowMenu = v end)
+    addToggle(VisualsTab, "Viseur (Crosshair)", Config.Visuals.Crosshair.Enabled, function(v) Config.Visuals.Crosshair.Enabled = v end)
+    addToggle(VisualsTab, "Anti-Lag (FPS Boost)", Config.Visuals.AntiLag, function(v) Config.Visuals.AntiLag = v end)
+    addToggle(VisualsTab, "Mode Streamer", Config.Visuals.StreamerMode, function(v) Config.Visuals.StreamerMode = v end)
     
     local function createColorSection(parent, title, configPath, callback)
         local frame = Instance.new("Frame")
@@ -1289,6 +1557,7 @@ function Library:CreateWindow()
     createColorSection(VisualsTab, "Couleur Menu", Config.Visuals.AccentColor, updateMenuTheme)
     createColorSection(VisualsTab, "Couleur ESP", Config.ESP.Color)
     createColorSection(VisualsTab, "Couleur FOV", Config.Visuals.FOVColorRGB)
+    createColorSection(VisualsTab, "Couleur Monde", Config.Visuals.WorldColor)
 
     addButton(VisualsTab, "Reset Couleurs", function()
         Config.Visuals.AccentColor = {R = 255, G = 255, B = 255}
@@ -1310,19 +1579,31 @@ function Library:CreateWindow()
     addToggle(MovementTab, "Speed Hack", Config.Movement.SpeedHack.Enabled, function(v) Config.Movement.SpeedHack.Enabled = v end)
     addSlider(MovementTab, "Valeur Vitesse", 16, 500, Config.Movement.SpeedHack.Value, function(v) Config.Movement.SpeedHack.Value = v end)
     addToggle(MovementTab, "NoClip", Config.Movement.NoClip, function(v) Config.Movement.NoClip = v end)
+    addKeybind(MovementTab, "Touche NoClip", Config.Movement.NoClipKey, function(v) Config.Movement.NoClipKey = v end)
     addToggle(MovementTab, "AutoJump", Config.Movement.AutoJump, function(v) Config.Movement.AutoJump = v end)
     addToggle(MovementTab, "Bunny Hop", Config.Movement.Bhop, function(v) Config.Movement.Bhop = v end)
     addToggle(MovementTab, "Saut Infini", Config.Movement.InfiniteJump, function(v) Config.Movement.InfiniteJump = v end)
-
+    addToggle(MovementTab, "Click Teleport (Ctrl+LClick)", Config.Movement.ClickTP.Enabled, function(v) Config.Movement.ClickTP.Enabled = v end)
+    
     -- Combat Content - TOUS LES ÉLÉMENTS
     addToggle(CombatTab, "Activer SpinBot", Config.Combat.SpinBot.Enabled, function(v) Config.Combat.SpinBot.Enabled = v end)
     addSlider(CombatTab, "Vitesse Rotation", 1, 100, Config.Combat.SpinBot.Speed, function(v) Config.Combat.SpinBot.Speed = v end)
     addToggle(CombatTab, "Rotation Verticale", Config.Combat.SpinBot.Vertical, function(v) Config.Combat.SpinBot.Vertical = v end)
     addToggle(CombatTab, "Aim Assist", Config.Combat.AimAssist.Enabled, function(v) Config.Combat.AimAssist.Enabled = v end)
     addSlider(CombatTab, "Force Assist", 0.01, 0.5, Config.Combat.AimAssist.Strength, function(v) Config.Combat.AimAssist.Strength = v end)
+    addToggle(CombatTab, "Kill Aura", Config.Combat.KillAura.Enabled, function(v) Config.Combat.KillAura.Enabled = v end)
+    addSlider(CombatTab, "Portée Kill Aura", 5, 50, Config.Combat.KillAura.Range, function(v) Config.Combat.KillAura.Range = v end)
+    addToggle(CombatTab, "Auto Clicker", Config.Combat.AutoClicker.Enabled, function(v) Config.Combat.AutoClicker.Enabled = v end)
+    addSlider(CombatTab, "CPS", 1, 30, Config.Combat.AutoClicker.CPS, function(v) Config.Combat.AutoClicker.CPS = v end)
+    addToggle(CombatTab, "FOV Changer", Config.Combat.FovChanger.Enabled, function(v) Config.Combat.FovChanger.Enabled = v end)
+    addSlider(CombatTab, "Valeur FOV", 30, 150, Config.Combat.FovChanger.Value, function(v) Config.Combat.FovChanger.Value = v end)
     addToggle(CombatTab, "Hitbox Expander", Config.Combat.HitboxExpander.Enabled, function(v) Config.Combat.HitboxExpander.Enabled = v end)
+    addToggle(CombatTab, "Weapon Reach", Config.Combat.Reach.Enabled, function(v) Config.Combat.Reach.Enabled = v end)
+    addSlider(CombatTab, "Portée Reach", 1, 50, Config.Combat.Reach.Range, function(v) Config.Combat.Reach.Range = v end)
+    addToggle(CombatTab, "Inclure NPCs", Config.Combat.HitboxExpander.ExpandNPC, function(v) Config.Combat.HitboxExpander.ExpandNPC = v end)
     addSlider(CombatTab, "Multiplicateur Taille", 1, 50, Config.Combat.HitboxExpander.Multiplier, function(v) Config.Combat.HitboxExpander.Multiplier = v end)
     addSlider(CombatTab, "Transparence Hitbox", 0, 1, Config.Combat.HitboxExpander.Transparency, function(v) Config.Combat.HitboxExpander.Transparency = v end)
+    createColorSection(CombatTab, "Couleur Hitbox", Config.Combat.HitboxExpander.ColorRGB, function(c) Config.Combat.HitboxExpander.Color = c end)
 
     -- Triggerbot Content - TOUS LES ÉLÉMENTS
     addToggle(TriggerTab, "Activer Triggerbot", Config.Triggerbot.Enabled, function(v) Config.Triggerbot.Enabled = v end)
@@ -1332,30 +1613,61 @@ function Library:CreateWindow()
 
     -- Misc Content - TOUS LES ÉLÉMENTS
     addToggle(MiscTab, "Anti-AFK", Config.Misc.AntiAFK, function(v) Config.Misc.AntiAFK = v end)
+    addToggle(MiscTab, "Chat Spammer", Config.Misc.ChatSpammer.Enabled, function(v) Config.Misc.ChatSpammer.Enabled = v end)
+    addInput(MiscTab, "Message Spammer", Config.Misc.ChatSpammer.Message, function(v) Config.Misc.ChatSpammer.Message = v end)
+    addSlider(MiscTab, "Délai Spammer (s)", 1, 10, Config.Misc.ChatSpammer.Delay, function(v) Config.Misc.ChatSpammer.Delay = v end)
     addSlider(MiscTab, "Gravité", 0, 500, Config.Misc.Gravity, function(v) Config.Misc.Gravity = v workspace.Gravity = v end)
     addSlider(MiscTab, "Cap FPS", 30, 240, Config.Misc.FPSCap, function(v) Config.Misc.FPSCap = v if setfpscap then setfpscap(v) end end)
     
     addButton(MiscTab, "Server Hop", serverHop)
     addButton(MiscTab, "Rejoindre Serveur", rejoinServer)
     addToggle(MiscTab, "Anti-Cheat Bypass", true, function(v) log("Anti-cheat bypass: " .. tostring(v)) end)
+    addToggle(MiscTab, "Quick Exit (Touche Fin)", Config.Misc.QuickExit, function(v) Config.Misc.QuickExit = v end)
     addToggle(MiscTab, "Consommation Énergie Vol", Config.Movement.Fly.EnergyEnabled, function(v) Config.Movement.Fly.EnergyEnabled = v end)
-    addButton(MiscTab, "Sauvegarder Config", saveConfig)
-    addButton(MiscTab, "Charger Config", loadConfig)
+    local currentProfileName = "Profile1"
+    addInput(MiscTab, "Nom du Profil", "Profile1", function(v) currentProfileName = v end)
+    
+    addButton(MiscTab, "Sauvegarder Profil", function() 
+        saveConfig(currentProfileName .. ".json") 
+        log("Profil sauvegardé: " .. currentProfileName)
+    end)
+    
+    addButton(MiscTab, "Charger Profil", function() 
+        if loadConfig(currentProfileName .. ".json") then
+            log("Profil chargé: " .. currentProfileName)
+        else
+            log("Erreur: Profil introuvable")
+        end
+    end)
+
     addButton(MiscTab, "Reset Config", function() 
         log("Configuration réinitialisée")
-        -- Implémenter la réinitialisation si nécessaire
     end)
 
     -- Teleportation Content
     local playerListFrame = Instance.new("Frame")
-    playerListFrame.Size = UDim2.new(1, -10, 0, 200)
+    playerListFrame.Size = UDim2.new(1, -10, 0, 240) -- Augmenté pour la barre de recherche
     playerListFrame.BackgroundColor3 = Theme.Secondary
     playerListFrame.Parent = TeleportTab
     Instance.new("UICorner", playerListFrame).CornerRadius = UDim.new(0, 4)
 
+    local searchBox = Instance.new("TextBox")
+    searchBox.Size = UDim2.new(1, -20, 0, 25)
+    searchBox.Position = UDim2.new(0, 10, 0, 35)
+    searchBox.BackgroundColor3 = Theme.Hover
+    searchBox.BackgroundTransparency = 0.5
+    searchBox.Text = ""
+    searchBox.PlaceholderText = "Rechercher un joueur..."
+    searchBox.TextColor3 = Theme.Text
+    searchBox.PlaceholderColor3 = Theme.TextDim
+    searchBox.Font = Enum.Font.Gotham
+    searchBox.TextSize = 12
+    searchBox.Parent = playerListFrame
+    Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
+
     local playerListScroll = Instance.new("ScrollingFrame")
-    playerListScroll.Size = UDim2.new(1, -10, 1, -40)
-    playerListScroll.Position = UDim2.new(0, 5, 0, 35)
+    playerListScroll.Size = UDim2.new(1, -10, 1, -75)
+    playerListScroll.Position = UDim2.new(0, 5, 0, 70)
     playerListScroll.BackgroundTransparency = 1
     playerListScroll.ScrollBarThickness = 2
     playerListScroll.Parent = playerListFrame
@@ -1374,17 +1686,18 @@ function Library:CreateWindow()
     playerLabel.TextXAlignment = Enum.TextXAlignment.Left
     playerLabel.Parent = playerListFrame
 
-    local function refreshPlayerList()
+    local function refreshPlayerList(searchText)
+        searchText = searchText and searchText:lower() or ""
         for _, child in pairs(playerListScroll:GetChildren()) do
             if child:IsA("TextButton") then child:Destroy() end
         end
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then
+            if p ~= LocalPlayer and (searchText == "" or p.Name:lower():find(searchText) or p.DisplayName:lower():find(searchText)) then
                 local pBtn = Instance.new("TextButton")
                 pBtn.Size = UDim2.new(1, -10, 0, 25)
                 pBtn.BackgroundColor3 = Theme.Hover
                 pBtn.BackgroundTransparency = 0.5
-                pBtn.Text = p.Name
+                pBtn.Text = p.DisplayName .. " (@" .. p.Name .. ")"
                 pBtn.TextColor3 = Theme.Text
                 pBtn.Font = Enum.Font.Gotham
                 pBtn.TextSize = 12
@@ -1401,7 +1714,11 @@ function Library:CreateWindow()
         playerListScroll.CanvasSize = UDim2.new(0, 0, 0, playerListLayout.AbsoluteContentSize.Y)
     end
 
-    addButton(TeleportTab, "Rafraîchir la liste", refreshPlayerList)
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        refreshPlayerList(searchBox.Text)
+    end)
+
+    addButton(TeleportTab, "Rafraîchir la liste", function() refreshPlayerList(searchBox.Text) end)
     addButton(TeleportTab, "Téléporter vers le joueur", function()
         if selectedTeleportPlayer and selectedTeleportPlayer.Character and selectedTeleportPlayer.Character:FindFirstChild("HumanoidRootPart") then
             local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -1426,8 +1743,127 @@ function Library:CreateWindow()
             end
         end
     end)
+
+    -- Waypoints Section
+    local waypointLabel = Instance.new("TextLabel")
+    waypointLabel.Size = UDim2.new(1, -10, 0, 30)
+    waypointLabel.BackgroundTransparency = 1
+    waypointLabel.Text = "POINTS DE PASSAGE (WAYPOINTS)"
+    waypointLabel.TextColor3 = Theme.TextDim
+    waypointLabel.Font = Enum.Font.GothamSemibold
+    waypointLabel.TextSize = 10
+    waypointLabel.TextXAlignment = Enum.TextXAlignment.Left
+    waypointLabel.Parent = TeleportTab
+
+    local waypointName = "Point 1"
+    addInput(TeleportTab, "Nom du Waypoint", "Point 1", function(v) waypointName = v end)
+
+    local waypointScroll = Instance.new("ScrollingFrame")
+    waypointScroll.Size = UDim2.new(1, -10, 0, 150)
+    waypointScroll.BackgroundTransparency = 1
+    waypointScroll.ScrollBarThickness = 2
+    waypointScroll.Parent = TeleportTab
     
-    TeleportBtn.MouseButton1Click:Connect(refreshPlayerList)
+    local waypointLayout = Instance.new("UIListLayout", waypointScroll)
+    waypointLayout.Padding = UDim.new(0, 2)
+
+    local function refreshWaypoints()
+        for _, child in pairs(waypointScroll:GetChildren()) do
+            if child:IsA("Frame") then child:Destroy() end
+        end
+        for name, pos in pairs(Config.Misc.Waypoints) do
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, -10, 0, 40)
+            frame.BackgroundColor3 = Theme.Hover
+            frame.BackgroundTransparency = 0.5
+            frame.Parent = waypointScroll
+            Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(0.6, 0, 0.6, 0)
+            label.Position = UDim2.new(0, 10, 0, 2)
+            label.BackgroundTransparency = 1
+            label.Text = name
+            label.TextColor3 = Theme.Text
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 12
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Parent = frame
+
+            local coords = Instance.new("TextLabel")
+            coords.Size = UDim2.new(0.6, 0, 0.4, 0)
+            coords.Position = UDim2.new(0, 10, 0.6, -2)
+            coords.BackgroundTransparency = 1
+            coords.Text = string.format("X: %.1f, Y: %.1f, Z: %.1f", pos.X, pos.Y, pos.Z)
+            coords.TextColor3 = Theme.TextDim
+            coords.Font = Enum.Font.Gotham
+            coords.TextSize = 10
+            coords.TextXAlignment = Enum.TextXAlignment.Left
+            coords.Parent = frame
+
+            local tpBtn = Instance.new("TextButton")
+            tpBtn.Size = UDim2.new(0.15, 0, 0.8, 0)
+            tpBtn.Position = UDim2.new(0.65, 0, 0.1, 0)
+            tpBtn.BackgroundColor3 = Theme.Accent
+            tpBtn.Text = "TP"
+            tpBtn.TextColor3 = Theme.Background
+            tpBtn.Font = Enum.Font.GothamBold
+            tpBtn.TextSize = 10
+            tpBtn.Parent = frame
+            Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 4)
+
+            tpBtn.MouseButton1Click:Connect(function()
+                local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.CFrame = CFrame.new(pos.X, pos.Y, pos.Z)
+                    log("TP vers waypoint: " .. name)
+                end
+            end)
+
+            local delBtn = Instance.new("TextButton")
+            delBtn.Size = UDim2.new(0.15, 0, 0.8, 0)
+            delBtn.Position = UDim2.new(0.82, 0, 0.1, 0)
+            delBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+            delBtn.Text = "X"
+            delBtn.TextColor3 = Theme.Text
+            delBtn.Font = Enum.Font.GothamBold
+            delBtn.TextSize = 10
+            delBtn.Parent = frame
+            Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
+
+            delBtn.MouseButton1Click:Connect(function()
+                Config.Misc.Waypoints[name] = nil
+                refreshWaypoints()
+                saveConfig()
+                log("Waypoint supprimé: " .. name)
+            end)
+        end
+        waypointScroll.CanvasSize = UDim2.new(0, 0, 0, waypointLayout.AbsoluteContentSize.Y)
+    end
+
+    addButton(TeleportTab, "Sauvegarder position actuelle", function()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            Config.Misc.Waypoints[waypointName] = {X = hrp.Position.X, Y = hrp.Position.Y, Z = hrp.Position.Z}
+            refreshWaypoints()
+            saveConfig()
+            log("Waypoint sauvegardé: " .. waypointName)
+        end
+    end)
+
+    addButton(TeleportTab, "Vider tous les Waypoints", function()
+        Config.Misc.Waypoints = {}
+        refreshWaypoints()
+        saveConfig()
+        log("Tous les waypoints ont été supprimés")
+    end)
+
+    refreshWaypoints()
+
+    TeleportBtn.MouseButton1Click:Connect(function()
+        refreshPlayerList()
+        refreshWaypoints()
+    end)
      refreshPlayerList()
      
      Players.PlayerAdded:Connect(refreshPlayerList)
@@ -1467,6 +1903,52 @@ local function setupAntiAFK()
     end)
 end
 
+local lastChatSpam = 0
+local function updateChatSpammer()
+    if not Config.Misc.ChatSpammer.Enabled then return end
+    if tick() - lastChatSpam < Config.Misc.ChatSpammer.Delay then return end
+    
+    task.spawn(function()
+        local success = false
+        
+        -- Méthode 1: TextChatService (Nouveau système Roblox)
+        local textChatService = game:GetService("TextChatService")
+        if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+            local channels = textChatService:FindFirstChild("TextChannels")
+            local channel = channels and (channels:FindFirstChild("RBXGeneral") or channels:FindFirstChildOfClass("TextChannel"))
+            if channel then
+                channel:SendAsync(Config.Misc.ChatSpammer.Message)
+                success = true
+            end
+        end
+        
+        -- Méthode 2: RemoteEvent (Ancien système Legacy)
+        if not success then
+            local remote = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+            remote = remote and remote:FindFirstChild("SayMessageRequest")
+            if remote then
+                remote:FireServer(Config.Misc.ChatSpammer.Message, "All")
+                success = true
+            end
+        end
+
+        -- Méthode 3: SayMessageRequest direct (Alternative Legacy)
+        if not success then
+            local sayMsg = game:GetService("ReplicatedStorage"):FindFirstChild("SayMessageRequest")
+            if sayMsg and sayMsg:IsA("RemoteEvent") then
+                sayMsg:FireServer(Config.Misc.ChatSpammer.Message, "All")
+                success = true
+            end
+        end
+        
+        if success then
+            lastChatSpam = tick()
+        else
+            log("Erreur: Impossible de trouver un canal de chat valide")
+        end
+    end)
+end
+
 local function serverHop()
     local HttpService = game:GetService("HttpService")
     local TeleportService = game:GetService("TeleportService")
@@ -1499,6 +1981,11 @@ setupAntiAFK()
 
 FOVCircle = createDrawing("Circle", {Thickness = 1, NumSides = 64, Color = Color3.new(1,1,1), Transparency = 1, Visible = false})
 
+local CrosshairL = createDrawing("Line", {Thickness = 1, Color = Color3.new(0, 1, 0), Transparency = 1, Visible = false})
+local CrosshairR = createDrawing("Line", {Thickness = 1, Color = Color3.new(0, 1, 0), Transparency = 1, Visible = false})
+local CrosshairT = createDrawing("Line", {Thickness = 1, Color = Color3.new(0, 1, 0), Transparency = 1, Visible = false})
+local CrosshairB = createDrawing("Line", {Thickness = 1, Color = Color3.new(0, 1, 0), Transparency = 1, Visible = false})
+
 local function updateVisuals()
     if Config.Visuals.FullBright then
         game:GetService("Lighting").Brightness = 2
@@ -1513,6 +2000,94 @@ local function updateVisuals()
     if Config.Visuals.NoFog then
         game:GetService("Lighting").FogEnd = 100000
     end
+
+    if Config.Combat.FovChanger.Enabled then
+        local cam = getCamera()
+        if cam then
+            cam.FieldOfView = Config.Combat.FovChanger.Value
+        end
+    end
+
+    if Config.Visuals.RainbowMenu then
+        local hue = tick() % 5 / 5
+        local color = Color3.fromHSV(hue, 1, 1)
+        updateMenuTheme(color)
+    end
+
+    -- Update Crosshair
+    local showCrosshair = Config.Visuals.Crosshair.Enabled
+    local cam = getCamera()
+    local center = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
+    local size = Config.Visuals.Crosshair.Size
+    local color = Config.Visuals.Crosshair.Color
+
+    CrosshairL.Visible = showCrosshair
+    CrosshairR.Visible = showCrosshair
+    CrosshairT.Visible = showCrosshair
+    CrosshairB.Visible = showCrosshair
+
+    if showCrosshair then
+        CrosshairL.From = center - Vector2.new(size, 0)
+        CrosshairL.To = center - Vector2.new(2, 0)
+        CrosshairL.Color = color
+
+        CrosshairR.From = center + Vector2.new(2, 0)
+        CrosshairR.To = center + Vector2.new(size, 0)
+        CrosshairR.Color = color
+
+        CrosshairT.From = center - Vector2.new(0, size)
+        CrosshairT.To = center - Vector2.new(0, 2)
+        CrosshairT.Color = color
+
+        CrosshairB.From = center + Vector2.new(0, 2)
+        CrosshairB.To = center + Vector2.new(0, size)
+        CrosshairB.Color = color
+    end
+
+    if Config.Visuals.AntiLag then
+        local lighting = game:GetService("Lighting")
+        lighting.GlobalShadows = false
+        lighting.FogEnd = 9e9
+        for _, v in pairs(game:GetDescendants()) do
+            if v:IsA("Part") or v:IsA("UnionOperation") or v:IsA("MeshPart") then
+                v.Material = Enum.Material.SmoothPlastic
+                v.Reflectance = 0
+            elseif v:IsA("Decal") or v:IsA("Texture") then
+                v.Transparency = 1
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                v.Enabled = false
+            end
+        end
+        Config.Visuals.AntiLag = false -- Run once
+        log("Anti-Lag appliqué (Smooth Plastic & No Textures)")
+    end
+
+    -- Update Highlights
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local highlight = player.Character:FindFirstChild("DaveHighlight")
+            if Config.Visuals.Highlight.Enabled then
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "DaveHighlight"
+                    highlight.Parent = player.Character
+                end
+                highlight.FillColor = Config.Visuals.Highlight.Color
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                highlight.FillTransparency = Config.Visuals.Highlight.Transparency
+                highlight.OutlineTransparency = 0
+                
+                -- Team Check
+                if Config.ESP.TeamCheck and player.Team == LocalPlayer.Team then
+                    highlight.Enabled = false
+                else
+                    highlight.Enabled = true
+                end
+            elseif highlight then
+                highlight:Destroy()
+            end
+        end
+    end
 end
 
 RunService.RenderStepped:Connect(function()
@@ -1523,6 +2098,11 @@ RunService.RenderStepped:Connect(function()
     aimAssistUpdate()
     updateHitboxes()
     updateVisuals()
+    autoClickerUpdate()
+    killAuraUpdate()
+    reachUpdate()
+    updateWorldVisuals()
+    updateChatSpammer()
     if FOVCircle then
         local cam = getCamera()
         FOVCircle.Position = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
@@ -1555,6 +2135,20 @@ RunService:BindToRenderStep("AimbotProc", Enum.RenderPriority.Camera.Value + 1, 
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and Config.Movement.ClickTP.Enabled then
+        if UserInputService:IsKeyDown(Config.Movement.ClickTP.Key) then
+            local mouse = LocalPlayer:GetMouse()
+            if mouse.Target then
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.CFrame = CFrame.new(mouse.Hit.p + Vector3.new(0, 3, 0))
+                    log("Téléporté à la position de la souris")
+                end
+            end
+        end
+    end
+
     if input.KeyCode == Config.Aimbot.Key or input.UserInputType == Config.Aimbot.Key then 
         AimlockPressed = not AimlockPressed
         if not AimlockPressed then CurrentTarget = nil end
@@ -1562,8 +2156,23 @@ UserInputService.InputBegan:Connect(function(input, gp)
     
     if input.KeyCode == Config.Triggerbot.Key then TriggerActive = not TriggerActive end
     
-    if Config.Movement.Fly.Enabled and input.KeyCode == Config.Movement.Fly.Key then
+    if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightControl then
+        MainFrame.Visible = not MainFrame.Visible
+        ScreenGui.Enabled = MainFrame.Visible
+        if not MainFrame.Visible then
+            RestoreBtn.Visible = true
+        else
+            RestoreBtn.Visible = false
+        end
+    end
+    
+    if input.KeyCode == Config.Movement.Fly.Key and Config.Movement.Fly.Enabled then
         toggleFly()
+    end
+
+    if input.KeyCode == Config.Movement.NoClipKey then
+        Config.Movement.NoClip = not Config.Movement.NoClip
+        log("NoClip: " .. (Config.Movement.NoClip and "Activé" or "Désactivé"))
     end
     
     if Config.Movement.Sprint.Enabled and input.KeyCode == Enum.KeyCode.LeftShift then
@@ -1582,7 +2191,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
                         DoubleJumped = true
                         local hrp = char:FindFirstChild("HumanoidRootPart")
                         if hrp then
-                            hrp.Velocity = Vector3.new(hrp.Velocity.X, hum.JumpPower, hrp.Velocity.Z)
+                            hrp.Velocity = Vector3.new(hrp.Velocity.X, hum.JumpPower * Config.Movement.SuperJump.PowerMultiplier, hrp.Velocity.Z)
                         end
                     end
                 else
@@ -1591,6 +2200,10 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 end
             end
         end
+    end
+    if input.KeyCode == Enum.KeyCode.End and Config.Misc.QuickExit then
+        log("Sortie rapide activée")
+        game:Shutdown()
     end
 end)
 
