@@ -22,7 +22,7 @@ local Config = {
     Aimbot = {
         Enabled = false,
         Key = Enum.KeyCode.J,
-        Smoothness = 0.5,
+        Smoothness = 0,
         FOV = 150,
         ShowFOV = true,
         TargetPart = "Head",
@@ -59,6 +59,7 @@ local Config = {
             Key = Enum.KeyCode.F,
             Speed = 50,
             AscendSpeed = 30,
+            NoFallDamage = true,
             EnergyEnabled = false,
             Energy = 100,
             MaxEnergy = 100
@@ -121,6 +122,9 @@ local Config = {
         FovChanger = {
             Enabled = false,
             Value = 90
+        },
+        GodMode = {
+            Enabled = false
         }
     },
     Visuals = {
@@ -156,10 +160,32 @@ local Config = {
 }
 
 -- ========== CONSTANTES ESP ==========
+local function deepCopy(t)
+    if type(t) ~= "table" then return t end
+    local c = {}
+    for k, v in pairs(t) do
+        c[k] = deepCopy(v)
+    end
+    return c
+end
+
+local DefaultConfig = deepCopy(Config)
+
+local autosaveScheduled = false
+local function scheduleAutoSave()
+    if autosaveScheduled then return end
+    autosaveScheduled = true
+    task.delay(0.5, function()
+        autosaveScheduled = false
+        saveConfig()
+    end)
+end
+
 local R6_JOINTS = {
     {"Head", "Torso"},
     {"Torso", "Left Arm"},
     {"Torso", "Right Arm"},
+    {"Torso", "Left Leg"},
     {"Torso", "Left Leg"},
     {"Torso", "Right Leg"}
 }
@@ -632,6 +658,9 @@ local function updateMovement()
     end
 
     if Flying then
+        if Config.Movement.Fly.NoFallDamage and hrp.Velocity.Y < -30 then
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, -30, hrp.Velocity.Z)
+        end
         if Config.Movement.Fly.EnergyEnabled then
             Config.Movement.Fly.Energy = math.max(0, Config.Movement.Fly.Energy - 0.1)
             if Config.Movement.Fly.Energy == 0 then
@@ -661,6 +690,9 @@ local function updateMovement()
     else
         if Config.Movement.Fly.EnergyEnabled then
             Config.Movement.Fly.Energy = math.min(Config.Movement.Fly.MaxEnergy, Config.Movement.Fly.Energy + 0.05)
+        end
+        if Config.Movement.Fly.NoFallDamage and hum.FloorMaterial ~= Enum.Material.Air then
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, math.max(hrp.Velocity.Y, -15), hrp.Velocity.Z)
         end
     end
 
@@ -753,6 +785,49 @@ local function spinbotUpdate()
         targetCF = targetCF * CFrame.Angles(math.rad(SpinAngle), 0, 0)
     end
     hrp.CFrame = targetCF
+end
+
+local function updateGodMode()
+    if not Config.Combat.GodMode.Enabled then return end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    hum.BreakJointsOnDeath = false
+    if hum.SetStateEnabled then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false) end)
+        pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false) end)
+        pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false) end)
+        pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false) end)
+    end
+    hum.PlatformStand = false
+    hum.Sit = false
+    if hum.Health < hum.MaxHealth then
+        hum.Health = hum.MaxHealth
+    end
+    if hum:GetState() == Enum.HumanoidStateType.Ragdoll
+        or hum:GetState() == Enum.HumanoidStateType.FallingDown
+        or hum:GetState() == Enum.HumanoidStateType.PlatformStanding then
+        hum:ChangeState(Enum.HumanoidStateType.Running)
+    end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.Anchored = false end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Anchored = false
+        elseif part:IsA("BoolValue") then
+            local n = part.Name:lower()
+            if n == "knocked" or n == "ko" or n == "down" or n == "downed" then
+                part.Value = false
+            end
+        end
+    end
+    if (hum.WalkSpeed < 2) and not Config.Movement.SpeedHack.Enabled then
+        hum.WalkSpeed = 16
+    end
+    if hum.JumpPower < 20 then
+        hum.JumpPower = 50
+    end
 end
 
 -- ═══════════════════════════════════════════════════════════
@@ -1020,28 +1095,6 @@ function Library:CreateWindow()
     MainFrame.Draggable = false
     MainFrame.Parent = ScreenGui
     
-    local dragging = false
-    local dragStart
-    local startPos
-    MainFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = MainFrame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 4)
     local MainStroke = Instance.new("UIStroke", MainFrame)
     MainStroke.Color = Theme.Secondary
@@ -1062,6 +1115,79 @@ function Library:CreateWindow()
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 18
     Title.Parent = Sidebar
+    
+    do
+        local dragging = false
+        local dragStart, startPos
+        local dragThresholdY = 60
+        Sidebar.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local localY = input.Position.Y - Sidebar.AbsolutePosition.Y
+                if localY <= dragThresholdY then
+                    dragging = true
+                    dragStart = input.Position
+                    startPos = MainFrame.Position
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                            dragging = false
+                        end
+                    end)
+                end
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local delta = input.Position - dragStart
+                MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+    end
+    
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Size = UDim2.new(0, 24, 0, 24)
+    CloseBtn.Position = UDim2.new(1, -30, 0, 6)
+    CloseBtn.BackgroundColor3 = Theme.Secondary
+    CloseBtn.Text = "X"
+    CloseBtn.TextColor3 = Theme.Text
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.TextSize = 12
+    CloseBtn.Parent = MainFrame
+    Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
+    local CloseStroke = Instance.new("UIStroke", CloseBtn)
+    CloseStroke.Color = Theme.Accent
+    CloseStroke.Thickness = 1
+    CloseBtn.MouseButton1Click:Connect(function()
+        MainFrame.Visible = false
+        ScreenGui.Enabled = false
+        if RestoreBtn then RestoreBtn.Visible = true end
+    end)
+    
+    local TopDrag = Instance.new("Frame")
+    TopDrag.Size = UDim2.new(1, 0, 0, 28)
+    TopDrag.BackgroundTransparency = 1
+    TopDrag.Parent = MainFrame
+    do
+        local dragging2 = false
+        local dragStart2, startPos2
+        TopDrag.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging2 = true
+                dragStart2 = input.Position
+                startPos2 = MainFrame.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging2 = false
+                    end
+                end)
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging2 and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local delta = input.Position - dragStart2
+                MainFrame.Position = UDim2.new(startPos2.X.Scale, startPos2.X.Offset + delta.X, startPos2.Y.Scale, startPos2.Y.Offset + delta.Y)
+            end
+        end)
+    end
     
     local Version = Instance.new("TextLabel")
     Version.Size = UDim2.new(1, 0, 0, 20)
@@ -1251,6 +1377,7 @@ function Library:CreateWindow()
             dot:TweenPosition(state and UDim2.new(1, -13, 0.5, -5) or UDim2.new(0, 3, 0.5, -5), "Out", "Quad", 0.1, true)
             label.TextColor3 = state and Theme.Accent or Theme.TextDim
             callback(state)
+        scheduleAutoSave()
         end)
     end
     
@@ -1311,6 +1438,7 @@ function Library:CreateWindow()
             end
             label.Text = text:upper() .. " : " .. val
             callback(val)
+            scheduleAutoSave()
         end
         
         local dragging = false
@@ -1379,6 +1507,7 @@ function Library:CreateWindow()
                 if key ~= Enum.KeyCode.Escape then
                     btn.Text = key.Name:upper()
                     callback(key)
+                    scheduleAutoSave()
                 end
                 waiting = false
             end
@@ -1418,6 +1547,7 @@ function Library:CreateWindow()
             if enter then
                 callback(input.Text)
                 log("Valeur mise à jour: " .. input.Text)
+                scheduleAutoSave()
             end
         end)
     end
@@ -1592,6 +1722,7 @@ function Library:CreateWindow()
     addToggle(MovementTab, "Mode Vol (Fly)", Config.Movement.Fly.Enabled, function(v) Config.Movement.Fly.Enabled = v if v == false and Flying then toggleFly() end end)
     addKeybind(MovementTab, "Touche Vol", Config.Movement.Fly.Key, function(v) Config.Movement.Fly.Key = v end)
     addSlider(MovementTab, "Vitesse Vol", 10, 200, Config.Movement.Fly.Speed, function(v) Config.Movement.Fly.Speed = v end)
+    addToggle(MovementTab, "Anti-dégâts de chute (Fly)", Config.Movement.Fly.NoFallDamage, function(v) Config.Movement.Fly.NoFallDamage = v end)
     addToggle(MovementTab, "Sprint Amélioré", Config.Movement.Sprint.Enabled, function(v) Config.Movement.Sprint.Enabled = v end)
     addSlider(MovementTab, "Multiplicateur Sprint", 1, 5, Config.Movement.Sprint.Multiplier, function(v) Config.Movement.Sprint.Multiplier = v end)
     addToggle(MovementTab, "Super Saut", Config.Movement.SuperJump.Enabled, function(v) Config.Movement.SuperJump.Enabled = v end)
@@ -1605,9 +1736,18 @@ function Library:CreateWindow()
     addToggle(MovementTab, "AutoJump", Config.Movement.AutoJump, function(v) Config.Movement.AutoJump = v end)
     addToggle(MovementTab, "Bunny Hop", Config.Movement.Bhop, function(v) Config.Movement.Bhop = v end)
     addToggle(MovementTab, "Saut Infini", Config.Movement.InfiniteJump, function(v) Config.Movement.InfiniteJump = v end)
-    addToggle(MovementTab, "Click Teleport (Ctrl+LClick)", Config.Movement.ClickTP.Enabled, function(v) Config.Movement.ClickTP.Enabled = v end)
     
     -- Combat Content - TOUS LES ÉLÉMENTS
+    addToggle(CombatTab, "FOV Changer", Config.Combat.FovChanger.Enabled, function(v) Config.Combat.FovChanger.Enabled = v end)
+    addSlider(CombatTab, "Valeur FOV", 30, 150, Config.Combat.FovChanger.Value, function(v) Config.Combat.FovChanger.Value = v end)
+    addToggle(CombatTab, "Hitbox Expander", Config.Combat.HitboxExpander.Enabled, function(v) Config.Combat.HitboxExpander.Enabled = v end)
+    addToggle(CombatTab, "Inclure NPCs", Config.Combat.HitboxExpander.ExpandNPC, function(v) Config.Combat.HitboxExpander.ExpandNPC = v end)
+    addSlider(CombatTab, "Multiplicateur Taille", 1, 50, Config.Combat.HitboxExpander.Multiplier, function(v) Config.Combat.HitboxExpander.Multiplier = v end)
+    addSlider(CombatTab, "Transparence Hitbox", 0, 1, Config.Combat.HitboxExpander.Transparency, function(v) Config.Combat.HitboxExpander.Transparency = v end)
+    createColorSection(CombatTab, "Couleur Hitbox", Config.Combat.HitboxExpander.ColorRGB, function(c) Config.Combat.HitboxExpander.Color = c end)
+    addToggle(CombatTab, "God Mode (Invincible)", Config.Combat.GodMode.Enabled, function(v) Config.Combat.GodMode.Enabled = v end)
+    addToggle(CombatTab, "Weapon Reach", Config.Combat.Reach.Enabled, function(v) Config.Combat.Reach.Enabled = v end)
+    addSlider(CombatTab, "Portée Reach", 1, 50, Config.Combat.Reach.Range, function(v) Config.Combat.Reach.Range = v end)
     addToggle(CombatTab, "Activer SpinBot", Config.Combat.SpinBot.Enabled, function(v) Config.Combat.SpinBot.Enabled = v end)
     addSlider(CombatTab, "Vitesse Rotation", 1, 100, Config.Combat.SpinBot.Speed, function(v) Config.Combat.SpinBot.Speed = v end)
     addToggle(CombatTab, "Rotation Verticale", Config.Combat.SpinBot.Vertical, function(v) Config.Combat.SpinBot.Vertical = v end)
@@ -1617,15 +1757,6 @@ function Library:CreateWindow()
     addSlider(CombatTab, "Portée Kill Aura", 5, 50, Config.Combat.KillAura.Range, function(v) Config.Combat.KillAura.Range = v end)
     addToggle(CombatTab, "Auto Clicker", Config.Combat.AutoClicker.Enabled, function(v) Config.Combat.AutoClicker.Enabled = v end)
     addSlider(CombatTab, "CPS", 1, 30, Config.Combat.AutoClicker.CPS, function(v) Config.Combat.AutoClicker.CPS = v end)
-    addToggle(CombatTab, "FOV Changer", Config.Combat.FovChanger.Enabled, function(v) Config.Combat.FovChanger.Enabled = v end)
-    addSlider(CombatTab, "Valeur FOV", 30, 150, Config.Combat.FovChanger.Value, function(v) Config.Combat.FovChanger.Value = v end)
-    addToggle(CombatTab, "Hitbox Expander", Config.Combat.HitboxExpander.Enabled, function(v) Config.Combat.HitboxExpander.Enabled = v end)
-    addToggle(CombatTab, "Weapon Reach", Config.Combat.Reach.Enabled, function(v) Config.Combat.Reach.Enabled = v end)
-    addSlider(CombatTab, "Portée Reach", 1, 50, Config.Combat.Reach.Range, function(v) Config.Combat.Reach.Range = v end)
-    addToggle(CombatTab, "Inclure NPCs", Config.Combat.HitboxExpander.ExpandNPC, function(v) Config.Combat.HitboxExpander.ExpandNPC = v end)
-    addSlider(CombatTab, "Multiplicateur Taille", 1, 50, Config.Combat.HitboxExpander.Multiplier, function(v) Config.Combat.HitboxExpander.Multiplier = v end)
-    addSlider(CombatTab, "Transparence Hitbox", 0, 1, Config.Combat.HitboxExpander.Transparency, function(v) Config.Combat.HitboxExpander.Transparency = v end)
-    createColorSection(CombatTab, "Couleur Hitbox", Config.Combat.HitboxExpander.ColorRGB, function(c) Config.Combat.HitboxExpander.Color = c end)
 
     -- Triggerbot Content - TOUS LES ÉLÉMENTS
     addToggle(TriggerTab, "Activer Triggerbot", Config.Triggerbot.Enabled, function(v) Config.Triggerbot.Enabled = v end)
@@ -1663,6 +1794,12 @@ function Library:CreateWindow()
     end)
 
     addButton(MiscTab, "Reset Config", function() 
+        Config = deepCopy(DefaultConfig)
+        saveConfig()
+        if ScreenGui then
+            ScreenGui:Destroy()
+        end
+        Library:CreateWindow()
         log("Configuration réinitialisée")
     end)
 
@@ -1707,6 +1844,8 @@ function Library:CreateWindow()
     playerLabel.TextSize = 10
     playerLabel.TextXAlignment = Enum.TextXAlignment.Left
     playerLabel.Parent = playerListFrame
+    
+    addToggle(TeleportTab, "Click Teleport (Ctrl+LClick)", Config.Movement.ClickTP.Enabled, function(v) Config.Movement.ClickTP.Enabled = v end)
 
     local function refreshPlayerList(searchText)
         searchText = searchText and searchText:lower() or ""
@@ -2116,6 +2255,7 @@ RunService.RenderStepped:Connect(function()
     updateESP()
     triggerbotUpdate()
     updateMovement()
+    updateGodMode()
     spinbotUpdate()
     aimAssistUpdate()
     updateHitboxes()
