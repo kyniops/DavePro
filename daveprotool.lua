@@ -29,11 +29,13 @@ local Config = {
         MaxDistance = 1000,
         TeamCheck = false,
         VisibleCheck = true,
+        IgnoreVehicles = true,
+        StraightBullets = true,
         Sticky = true,
         AutoShoot = false
     },
     ESP = {
-        Enabled = true,
+        Enabled = false,
         Boxes = true,
         Skeleton = true,
         Health = true,
@@ -46,12 +48,6 @@ local Config = {
         BoxColor = Color3.fromRGB(255, 255, 255),
         SkelColor = Color3.fromRGB(255, 255, 255),
         Color = {R = 255, G = 255, B = 255}
-    },
-    Triggerbot = {
-        Enabled = false,
-        Key = Enum.KeyCode.T,
-        Delay = 0.05,
-        TeamCheck = false
     },
     Movement = {
         Fly = {
@@ -91,8 +87,7 @@ local Config = {
     Combat = {
         SpinBot = {
             Enabled = false,
-            Speed = 20,
-            Vertical = false
+            Speed = 20
         },
         AimAssist = {
             Enabled = false,
@@ -101,9 +96,9 @@ local Config = {
         HitboxExpander = {
             Enabled = false,
             Multiplier = 1.5,
-            Transparency = 0.6,
-            Color = Color3.fromRGB(255, 0, 0),
-            ColorRGB = {R = 255, G = 0, B = 0},
+            Transparency = 0.9,
+            Color = Color3.fromRGB(0, 255, 255),
+            ColorRGB = {R = 0, G = 255, B = 255},
             ExpandNPC = false
         },
         Reach = {
@@ -137,24 +132,19 @@ local Config = {
         FOVTransparency = 0.5,
         FOVColorRGB = {R = 255, G = 255, B = 255},
         AccentColor = {R = 255, G = 255, B = 255},
-        WorldColor = {Enabled = false, Color = Color3.fromRGB(255, 255, 255)},
         TimeChanger = {Enabled = false, Time = 12},
-        RainbowMenu = false,
         Crosshair = {Enabled = false, Size = 15, Color = Color3.fromRGB(0, 255, 0)},
         StreamerMode = false,
         AntiLag = false
     },
     Misc = {
         AntiAFK = true,
-        Gravity = 196.2,
-        FPSCap = 60,
         ChatSpammer = {
             Enabled = false,
             Message = "Dave Pro Tool On Top!",
             Delay = 3
         },
         AutoBypass = true,
-        QuickExit = false,
         Waypoints = {}
     },
 }
@@ -209,7 +199,6 @@ local R15_JOINTS = {
 
 -- État interne
 local AimlockPressed = false
-local TriggerActive = false
 local CurrentTarget = nil
 local ESPObjects = {}
 local FOVCircle = nil
@@ -297,7 +286,25 @@ local function isVisible(targetPart)
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = {char, Camera, targetPart.Parent}
     local result = workspace:Raycast(Camera.CFrame.Position, (targetPart.Position - Camera.CFrame.Position), params)
-    return not result
+    if not result then return true end
+    if Config.Aimbot.IgnoreVehicles and result.Instance then
+        local inst = result.Instance
+        local model = inst:FindFirstAncestorOfClass("Model")
+        local isVeh = false
+        if model then
+            if model:FindFirstChildWhichIsA("VehicleSeat", true) or model:FindFirstChildWhichIsA("Seat", true) then
+                isVeh = true
+            end
+        end
+        local n = inst.Name:lower()
+        if n:find("vehicle") or n:find("car") or n:find("plane") or (model and (model.Name:lower():find("car") or model.Name:lower():find("plane") or model.Name:lower():find("vehicle"))) then
+            isVeh = true
+        end
+        if isVeh then
+            return true
+        end
+    end
+    return false
 end
 
 -- ═══════════════════════════════════════════════════════════
@@ -382,6 +389,137 @@ local function aimAssistUpdate()
         local targetPos = target.Part.Position
         local targetCF = CFrame.lookAt(cam.CFrame.Position, targetPos)
         cam.CFrame = cam.CFrame:Lerp(targetCF, Config.Combat.AimAssist.Strength * 0.1)
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════
+-- SYSTÈME ÉMOTES
+-- ═══════════════════════════════════════════════════════════
+local CurrentEmoteTrack
+local EmoteFallbackConn
+local function stopEmoteFallback()
+    if EmoteFallbackConn then
+        pcall(function() EmoteFallbackConn:Disconnect() end)
+        EmoteFallbackConn = nil
+    end
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, m in pairs(char:GetDescendants()) do
+        if m:IsA("Motor6D") and string.find(m.Name:lower(), "shoulder") then
+            pcall(function() m.Transform = CFrame.new() end)
+        end
+    end
+end
+local function startHelicopterFallback()
+    stopEmoteFallback()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    local t0 = tick()
+    EmoteFallbackConn = RunService.RenderStepped:Connect(function()
+        local t = tick() - t0
+        local angle = t * 10
+        for _, m in pairs(char:GetDescendants()) do
+            if m:IsA("Motor6D") and string.find(m.Name:lower(), "shoulder") then
+                pcall(function() m.Transform = CFrame.Angles(0, angle, 0) end)
+            end
+        end
+        hum.Jump = false
+        hum.Sit = false
+        hum.PlatformStand = false
+    end)
+    log("Fallback émote Hélicoptère (custom) activé")
+end
+local function playEmoteById(id)
+    local char = LocalPlayer.Character
+    if not char then
+        local ok, newChar = pcall(function() return LocalPlayer.CharacterAdded:Wait() end)
+        if ok then char = newChar else return end
+    end
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    local assetUri
+    if typeof(id) == "string" and string.find(id, "rbxassetid://", 1, true) then
+        assetUri = id
+    else
+        assetUri = "rbxassetid://" .. tostring(id)
+    end
+    stopEmoteFallback()
+    local animator = hum:FindFirstChildOfClass("Animator") or hum:FindFirstChild("Animator")
+    if not animator then
+        animator = Instance.new("Animator")
+        animator.Parent = hum
+    end
+    if CurrentEmoteTrack then
+        pcall(function() CurrentEmoteTrack:Stop(0.2) end)
+        CurrentEmoteTrack = nil
+    end
+    local anim = Instance.new("Animation")
+    anim.AnimationId = assetUri
+    local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
+    if ok and track then
+        CurrentEmoteTrack = track
+        pcall(function() track.Priority = Enum.AnimationPriority.Action4 end)
+        pcall(function() track.Looped = true end)
+        local played = pcall(function() track:Play() end)
+        if played then
+            log("Émote lancée: " .. tostring(id))
+            return
+        end
+    else
+        if tostring(id) == "76510079095692" or tostring(assetUri):find("76510079095692", 1, true) then
+            startHelicopterFallback()
+        else
+            log("Échec de l'émote: " .. tostring(id))
+        end
+    end
+end
+
+local function stopEmotes()
+    stopEmoteFallback()
+    if CurrentEmoteTrack then
+        pcall(function() CurrentEmoteTrack:Stop(0.2) end)
+        CurrentEmoteTrack = nil
+    end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    local animator = hum:FindFirstChildOfClass("Animator") or hum:FindFirstChild("Animator")
+    if animator and animator.GetPlayingAnimationTracks then
+        for _, tr in ipairs(animator:GetPlayingAnimationTracks()) do
+            if tr.Priority == Enum.AnimationPriority.Action4 then
+                pcall(function() tr:Stop(0.2) end)
+            end
+        end
+    end
+    log("Émote arrêtée")
+end
+
+local function updateStraightBullets()
+    if not Config.Aimbot.StraightBullets then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local function zeroInTool(tool)
+        if not tool then return end
+        pcall(function()
+            for _, n in ipairs({"Spread","Bloom","Inaccuracy","Deviation"}) do
+                if tool:GetAttribute(n) ~= nil then tool:SetAttribute(n, 0) end
+            end
+        end)
+        for _, d in pairs(tool:GetDescendants()) do
+            if d:IsA("NumberValue") or d:IsA("IntValue") then
+                local n = d.Name:lower()
+                if n:find("spread") or n:find("bloom") or n:find("inacc") or n:find("deviation") then
+                    d.Value = 0
+                end
+            end
+        end
+    end
+    for _, t in pairs(char:GetChildren()) do
+        if t:IsA("Tool") then zeroInTool(t) end
+    end
+    for _, t in pairs(LocalPlayer.Backpack:GetChildren()) do
+        if t:IsA("Tool") then zeroInTool(t) end
     end
 end
 
@@ -781,9 +919,6 @@ local function spinbotUpdate()
 
     SpinAngle = SpinAngle + Config.Combat.SpinBot.Speed
     local targetCF = CFrame.new(hrp.Position) * CFrame.Angles(0, math.rad(SpinAngle), 0)
-    if Config.Combat.SpinBot.Vertical then
-        targetCF = targetCF * CFrame.Angles(math.rad(SpinAngle), 0, 0)
-    end
     hrp.CFrame = targetCF
 end
 
@@ -858,7 +993,7 @@ local function updateHitboxes()
                 box.CanQuery = true
                 box.Anchored = false
                 box.Transparency = Config.Combat.HitboxExpander.Transparency
-                box.Material = Enum.Material.ForceField
+                box.Material = Enum.Material.Neon
                 box.Parent = char
                 
                 local weld = Instance.new("Weld")
@@ -866,7 +1001,15 @@ local function updateHitboxes()
                 weld.Part1 = box
                 weld.C0 = CFrame.new(0, 0, 0)
                 weld.Parent = box
-                
+                local adorn = Instance.new("BoxHandleAdornment")
+                adorn.Name = "HitboxAdornment"
+                adorn.Adornee = box
+                adorn.ZIndex = 10
+                adorn.AlwaysOnTop = true
+                adorn.Color3 = Config.Combat.HitboxExpander.Color
+                adorn.Transparency = Config.Combat.HitboxExpander.Transparency
+                adorn.Size = Vector3.new(2 * Config.Combat.HitboxExpander.Multiplier, 2 * Config.Combat.HitboxExpander.Multiplier, 2 * Config.Combat.HitboxExpander.Multiplier)
+                adorn.Parent = box
                 Hitboxes[entity] = box
             end
 
@@ -874,6 +1017,12 @@ local function updateHitboxes()
             box.Size = Vector3.new(2 * sizeMultiplier, 2 * sizeMultiplier, 2 * sizeMultiplier)
             box.Color = Config.Combat.HitboxExpander.Color
             box.Transparency = Config.Combat.HitboxExpander.Transparency
+            local adorn = box:FindFirstChild("HitboxAdornment")
+            if adorn then
+                adorn.Size = box.Size
+                adorn.Color3 = Config.Combat.HitboxExpander.Color
+                adorn.Transparency = Config.Combat.HitboxExpander.Transparency
+            end
         else
             if Hitboxes[entity] then
                 Hitboxes[entity]:Destroy()
@@ -999,51 +1148,8 @@ end
 -- ═══════════════════════════════════════════════════════════
 
 local function updateWorldVisuals()
-    if Config.Visuals.WorldColor.Enabled then
-        local color = Config.Visuals.WorldColor.Color
-        -- Utilisation du Lighting pour changer l'ambiance
-        game.Lighting.Ambient = color
-        game.Lighting.OutdoorAmbient = color
-    end
-    
     if Config.Visuals.TimeChanger.Enabled then
         game.Lighting.ClockTime = Config.Visuals.TimeChanger.Time
-    end
-end
-
--- ═══════════════════════════════════════════════════════════
--- SYSTÈME TRIGGERBOT
--- ═══════════════════════════════════════════════════════════
-
-local lastShot = 0
-local function triggerbotUpdate()
-    if not Config.Triggerbot.Enabled or not TriggerActive then return end
-    
-    -- Empêcher le tir si la souris est sur le menu
-    if ScreenGui then
-        local mousePos = UserInputService:GetMouseLocation()
-        local guis = game:GetService("CoreGui"):GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
-        for _, gui in pairs(guis) do
-            if gui:IsDescendantOf(ScreenGui) then return end
-        end
-    end
-
-    if tick() - lastShot < Config.Triggerbot.Delay then return end
-    
-    local mouse = LocalPlayer:GetMouse()
-    local target = mouse.Target
-    if target and target.Parent then
-        local char = target.Parent
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum and hum.Health > 0 then
-            local p = Players:GetPlayerFromCharacter(char)
-            if p and p ~= LocalPlayer and (not Config.Triggerbot.TeamCheck or p.Team ~= LocalPlayer.Team) then
-                if mouse1click then
-                    mouse1click()
-                    lastShot = tick()
-                end
-            end
-        end
     end
 end
 
@@ -1569,10 +1675,10 @@ function Library:CreateWindow()
     -- Construction des Tabs
     local AimbotTab = createTab("Aimbot", "🎯")
     local ESPTab = createTab("ESP", "👁️")
-    local TriggerTab = createTab("Trigger", "⚡")
     local MovementTab = createTab("Mouvement", "👟")
     local CombatTab = createTab("Combat", "⚔️")
     local VisualsTab = createTab("Visuels", "✨")
+    local EmoteTab = createTab("Émotes", "🕺")
     local TeleportTab, TeleportBtn = createTab("Téléportation", "📍")
     local ScriptsTab = createTab("Scripts", "📜")
     local MiscTab = createTab("Divers", "🛠️")
@@ -1587,8 +1693,10 @@ function Library:CreateWindow()
     addToggle(AimbotTab, "Afficher FOV", Config.Aimbot.ShowFOV, function(v) Config.Aimbot.ShowFOV = v if FOVCircle then FOVCircle.Visible = v and Config.Aimbot.Enabled end end)
     addToggle(AimbotTab, "Team Check", Config.Aimbot.TeamCheck, function(v) Config.Aimbot.TeamCheck = v end)
     addToggle(AimbotTab, "Visible Check", Config.Aimbot.VisibleCheck, function(v) Config.Aimbot.VisibleCheck = v end)
+    addToggle(AimbotTab, "Ignorer Véhicules", Config.Aimbot.IgnoreVehicles, function(v) Config.Aimbot.IgnoreVehicles = v end)
     addToggle(AimbotTab, "Sticky Lock", Config.Aimbot.Sticky, function(v) Config.Aimbot.Sticky = v end)
     addToggle(AimbotTab, "Auto Shoot", Config.Aimbot.AutoShoot, function(v) Config.Aimbot.AutoShoot = v end)
+    addToggle(AimbotTab, "Tirs droits (No Spread)", Config.Aimbot.StraightBullets, function(v) Config.Aimbot.StraightBullets = v end)
     addSlider(AimbotTab, "Distance Max", 100, 5000, Config.Aimbot.MaxDistance, function(v) Config.Aimbot.MaxDistance = v end)
     addButton(AimbotTab, "Cible: Tête", function() Config.Aimbot.TargetPart = "Head" log("Cible: Head") end)
     addButton(AimbotTab, "Cible: Torse", function() Config.Aimbot.TargetPart = "HumanoidRootPart" log("Cible: Torso") end)
@@ -1613,10 +1721,8 @@ function Library:CreateWindow()
     addToggle(VisualsTab, "No Fog (Pas de brouillard)", Config.Visuals.NoFog, function(v) Config.Visuals.NoFog = v end)
     addSlider(VisualsTab, "Transparence FOV", 0, 1, Config.Visuals.FOVTransparency, function(v) Config.Visuals.FOVTransparency = v end)
     
-    addToggle(VisualsTab, "World Color", Config.Visuals.WorldColor.Enabled, function(v) Config.Visuals.WorldColor.Enabled = v end)
     addToggle(VisualsTab, "Time Changer", Config.Visuals.TimeChanger.Enabled, function(v) Config.Visuals.TimeChanger.Enabled = v end)
     addSlider(VisualsTab, "Heure du monde", 0, 24, Config.Visuals.TimeChanger.Time, function(v) Config.Visuals.TimeChanger.Time = v end)
-    addToggle(VisualsTab, "Menu Rainbow", Config.Visuals.RainbowMenu, function(v) Config.Visuals.RainbowMenu = v end)
     addToggle(VisualsTab, "Viseur (Crosshair)", Config.Visuals.Crosshair.Enabled, function(v) Config.Visuals.Crosshair.Enabled = v end)
     addToggle(VisualsTab, "Anti-Lag (FPS Boost)", Config.Visuals.AntiLag, function(v) Config.Visuals.AntiLag = v end)
     addToggle(VisualsTab, "Mode Streamer", Config.Visuals.StreamerMode, function(v) Config.Visuals.StreamerMode = v end)
@@ -1709,7 +1815,7 @@ function Library:CreateWindow()
     createColorSection(VisualsTab, "Couleur Menu", Config.Visuals.AccentColor, updateMenuTheme)
     createColorSection(VisualsTab, "Couleur ESP", Config.ESP.Color)
     createColorSection(VisualsTab, "Couleur FOV", Config.Visuals.FOVColorRGB)
-    createColorSection(VisualsTab, "Couleur Monde", Config.Visuals.WorldColor)
+    -- retiré: Couleur Monde
 
     addButton(VisualsTab, "Reset Couleurs", function()
         Config.Visuals.AccentColor = {R = 255, G = 255, B = 255}
@@ -1721,7 +1827,11 @@ function Library:CreateWindow()
     -- Movement Content - TOUS LES ÉLÉMENTS
     addToggle(MovementTab, "Mode Vol (Fly)", Config.Movement.Fly.Enabled, function(v) Config.Movement.Fly.Enabled = v if v == false and Flying then toggleFly() end end)
     addKeybind(MovementTab, "Touche Vol", Config.Movement.Fly.Key, function(v) Config.Movement.Fly.Key = v end)
-    addSlider(MovementTab, "Vitesse Vol", 10, 200, Config.Movement.Fly.Speed, function(v) Config.Movement.Fly.Speed = v end)
+    addSlider(MovementTab, "Vitesse Vol", 10, 250, Config.Movement.Fly.Speed, function(v) Config.Movement.Fly.Speed = v end)
+    addToggle(MovementTab, "NoClip", Config.Movement.NoClip, function(v) Config.Movement.NoClip = v end)
+    addKeybind(MovementTab, "Touche NoClip", Config.Movement.NoClipKey, function(v) Config.Movement.NoClipKey = v end)
+    addToggle(MovementTab, "Speed Hack", Config.Movement.SpeedHack.Enabled, function(v) Config.Movement.SpeedHack.Enabled = v end)
+    addSlider(MovementTab, "Valeur Vitesse", 16, 500, Config.Movement.SpeedHack.Value, function(v) Config.Movement.SpeedHack.Value = v end)
     addToggle(MovementTab, "Anti-dégâts de chute (Fly)", Config.Movement.Fly.NoFallDamage, function(v) Config.Movement.Fly.NoFallDamage = v end)
     addToggle(MovementTab, "Sprint Amélioré", Config.Movement.Sprint.Enabled, function(v) Config.Movement.Sprint.Enabled = v end)
     addSlider(MovementTab, "Multiplicateur Sprint", 1, 5, Config.Movement.Sprint.Multiplier, function(v) Config.Movement.Sprint.Multiplier = v end)
@@ -1729,28 +1839,41 @@ function Library:CreateWindow()
     addSlider(MovementTab, "Puissance Saut", 1, 10, Config.Movement.SuperJump.PowerMultiplier, function(v) Config.Movement.SuperJump.PowerMultiplier = v end)
     addToggle(MovementTab, "Double Saut", Config.Movement.SuperJump.DoubleJumpEnabled, function(v) Config.Movement.SuperJump.DoubleJumpEnabled = v end)
     addToggle(MovementTab, "Réduire Dégâts Chute", Config.Movement.SuperJump.ReduceFallDamage, function(v) Config.Movement.SuperJump.ReduceFallDamage = v end)
-    addToggle(MovementTab, "Speed Hack", Config.Movement.SpeedHack.Enabled, function(v) Config.Movement.SpeedHack.Enabled = v end)
-    addSlider(MovementTab, "Valeur Vitesse", 16, 500, Config.Movement.SpeedHack.Value, function(v) Config.Movement.SpeedHack.Value = v end)
-    addToggle(MovementTab, "NoClip", Config.Movement.NoClip, function(v) Config.Movement.NoClip = v end)
-    addKeybind(MovementTab, "Touche NoClip", Config.Movement.NoClipKey, function(v) Config.Movement.NoClipKey = v end)
     addToggle(MovementTab, "AutoJump", Config.Movement.AutoJump, function(v) Config.Movement.AutoJump = v end)
     addToggle(MovementTab, "Bunny Hop", Config.Movement.Bhop, function(v) Config.Movement.Bhop = v end)
     addToggle(MovementTab, "Saut Infini", Config.Movement.InfiniteJump, function(v) Config.Movement.InfiniteJump = v end)
     
     -- Combat Content - TOUS LES ÉLÉMENTS
     addToggle(CombatTab, "FOV Changer", Config.Combat.FovChanger.Enabled, function(v) Config.Combat.FovChanger.Enabled = v end)
-    addSlider(CombatTab, "Valeur FOV", 30, 150, Config.Combat.FovChanger.Value, function(v) Config.Combat.FovChanger.Value = v end)
-    addToggle(CombatTab, "Hitbox Expander", Config.Combat.HitboxExpander.Enabled, function(v) Config.Combat.HitboxExpander.Enabled = v end)
-    addToggle(CombatTab, "Inclure NPCs", Config.Combat.HitboxExpander.ExpandNPC, function(v) Config.Combat.HitboxExpander.ExpandNPC = v end)
-    addSlider(CombatTab, "Multiplicateur Taille", 1, 50, Config.Combat.HitboxExpander.Multiplier, function(v) Config.Combat.HitboxExpander.Multiplier = v end)
-    addSlider(CombatTab, "Transparence Hitbox", 0, 1, Config.Combat.HitboxExpander.Transparency, function(v) Config.Combat.HitboxExpander.Transparency = v end)
-    createColorSection(CombatTab, "Couleur Hitbox", Config.Combat.HitboxExpander.ColorRGB, function(c) Config.Combat.HitboxExpander.Color = c end)
+    addSlider(CombatTab, "Valeur FOV", 30, 120, Config.Combat.FovChanger.Value, function(v) Config.Combat.FovChanger.Value = v end)
     addToggle(CombatTab, "God Mode (Invincible)", Config.Combat.GodMode.Enabled, function(v) Config.Combat.GodMode.Enabled = v end)
-    addToggle(CombatTab, "Weapon Reach", Config.Combat.Reach.Enabled, function(v) Config.Combat.Reach.Enabled = v end)
-    addSlider(CombatTab, "Portée Reach", 1, 50, Config.Combat.Reach.Range, function(v) Config.Combat.Reach.Range = v end)
     addToggle(CombatTab, "Activer SpinBot", Config.Combat.SpinBot.Enabled, function(v) Config.Combat.SpinBot.Enabled = v end)
     addSlider(CombatTab, "Vitesse Rotation", 1, 100, Config.Combat.SpinBot.Speed, function(v) Config.Combat.SpinBot.Speed = v end)
-    addToggle(CombatTab, "Rotation Verticale", Config.Combat.SpinBot.Vertical, function(v) Config.Combat.SpinBot.Vertical = v end)
+    addToggle(CombatTab, "Hitbox Expander", Config.Combat.HitboxExpander.Enabled, function(v) Config.Combat.HitboxExpander.Enabled = v end)
+    addToggle(CombatTab, "Inclure NPCs", Config.Combat.HitboxExpander.ExpandNPC, function(v) Config.Combat.HitboxExpander.ExpandNPC = v end)
+    addSlider(CombatTab, "Multiplicateur Taille", 1, 150, Config.Combat.HitboxExpander.Multiplier, function(v) Config.Combat.HitboxExpander.Multiplier = v end)
+    addSlider(CombatTab, "Transparence Hitbox", 0, 1, Config.Combat.HitboxExpander.Transparency, function(v) Config.Combat.HitboxExpander.Transparency = v end)
+    createColorSection(CombatTab, "Couleur Hitbox", Config.Combat.HitboxExpander.ColorRGB, function(c) Config.Combat.HitboxExpander.Color = c end)
+    addToggle(CombatTab, "Weapon Reach", Config.Combat.Reach.Enabled, function(v) Config.Combat.Reach.Enabled = v end)
+    
+    -- Émotes
+    addButton(EmoteTab, "Arrêter l'émote", function() stopEmotes() end)
+    addButton(EmoteTab, "Hélicoptère", function() playEmoteById("rbxassetid://76510079095692") end)
+    addButton(EmoteTab, "Tornado", function() playEmoteById("rbxassetid://135373056067761") end)
+    addButton(EmoteTab, "Parkour Dance", function() playEmoteById("rbxassetid://120244151914853") end)
+    addButton(EmoteTab, "Fake Death", function() playEmoteById("rbxassetid://126527283467855") end)
+    addButton(EmoteTab, "Propeller", function() playEmoteById("rbxassetid://85377443478134") end)
+    addButton(EmoteTab, "67", function() playEmoteById("rbxassetid://130984232537362") end)
+    addButton(EmoteTab, "SixSeven", function() playEmoteById("rbxassetid://113052384161929") end)
+    addButton(EmoteTab, "Admin Fly", function() playEmoteById("rbxassetid://138354833484039") end)
+    addButton(EmoteTab, "Sakuna", function() playEmoteById("rbxassetid://128203986262469") end)
+    addButton(EmoteTab, "Scary Tall", function() playEmoteById("rbxassetid://130916388086314") end)
+    addButton(EmoteTab, "Woof Woof Bark", function() playEmoteById("rbxassetid://96435804447949") end)
+    addButton(EmoteTab, "Silly Jumping", function() playEmoteById("rbxassetid://137124482339556") end)
+    addButton(EmoteTab, "Silly Spider Dance", function() playEmoteById("rbxassetid://139310328821985") end)
+    addButton(EmoteTab, "Kid Tantrum", function() playEmoteById("rbxassetid://86339673982616") end)
+    addSlider(CombatTab, "Portée Reach", 1, 50, Config.Combat.Reach.Range, function(v) Config.Combat.Reach.Range = v end)
+    -- retiré: doublon SpinBot (bas)
     addToggle(CombatTab, "Aim Assist", Config.Combat.AimAssist.Enabled, function(v) Config.Combat.AimAssist.Enabled = v end)
     addSlider(CombatTab, "Force Assist", 0.01, 0.5, Config.Combat.AimAssist.Strength, function(v) Config.Combat.AimAssist.Strength = v end)
     addToggle(CombatTab, "Kill Aura", Config.Combat.KillAura.Enabled, function(v) Config.Combat.KillAura.Enabled = v end)
@@ -1758,25 +1881,19 @@ function Library:CreateWindow()
     addToggle(CombatTab, "Auto Clicker", Config.Combat.AutoClicker.Enabled, function(v) Config.Combat.AutoClicker.Enabled = v end)
     addSlider(CombatTab, "CPS", 1, 30, Config.Combat.AutoClicker.CPS, function(v) Config.Combat.AutoClicker.CPS = v end)
 
-    -- Triggerbot Content - TOUS LES ÉLÉMENTS
-    addToggle(TriggerTab, "Activer Triggerbot", Config.Triggerbot.Enabled, function(v) Config.Triggerbot.Enabled = v end)
-    addKeybind(TriggerTab, "Touche Activation", Config.Triggerbot.Key, function(v) Config.Triggerbot.Key = v end)
-    addSlider(TriggerTab, "Délai (sec)", 0, 0.5, Config.Triggerbot.Delay, function(v) Config.Triggerbot.Delay = v end)
-    addToggle(TriggerTab, "Team Check", Config.Triggerbot.TeamCheck, function(v) Config.Triggerbot.TeamCheck = v end)
-
     -- Misc Content - TOUS LES ÉLÉMENTS
     addToggle(MiscTab, "Anti-AFK", Config.Misc.AntiAFK, function(v) Config.Misc.AntiAFK = v end)
     addToggle(MiscTab, "Chat Spammer", Config.Misc.ChatSpammer.Enabled, function(v) Config.Misc.ChatSpammer.Enabled = v end)
     addInput(MiscTab, "Message Spammer", Config.Misc.ChatSpammer.Message, function(v) Config.Misc.ChatSpammer.Message = v end)
     addSlider(MiscTab, "Délai Spammer (s)", 1, 10, Config.Misc.ChatSpammer.Delay, function(v) Config.Misc.ChatSpammer.Delay = v end)
-    addSlider(MiscTab, "Gravité", 0, 500, Config.Misc.Gravity, function(v) Config.Misc.Gravity = v workspace.Gravity = v end)
-    addSlider(MiscTab, "Cap FPS", 30, 240, Config.Misc.FPSCap, function(v) Config.Misc.FPSCap = v if setfpscap then setfpscap(v) end end)
+    -- retiré: Gravité
+    -- retiré: Cap FPS
     
     addButton(MiscTab, "Server Hop", serverHop)
     addButton(MiscTab, "Rejoindre Serveur", rejoinServer)
     addToggle(MiscTab, "Anti-Cheat Bypass", true, function(v) log("Anti-cheat bypass: " .. tostring(v)) end)
-    addToggle(MiscTab, "Quick Exit (Touche Fin)", Config.Misc.QuickExit, function(v) Config.Misc.QuickExit = v end)
-    addToggle(MiscTab, "Consommation Énergie Vol", Config.Movement.Fly.EnergyEnabled, function(v) Config.Movement.Fly.EnergyEnabled = v end)
+    -- retiré: Quick Exit (Touche Fin)
+    -- retiré: Consommation Énergie Vol
     local currentProfileName = "Profile1"
     addInput(MiscTab, "Nom du Profil", "Profile1", function(v) currentProfileName = v end)
     
@@ -2169,11 +2286,7 @@ local function updateVisuals()
         end
     end
 
-    if Config.Visuals.RainbowMenu then
-        local hue = tick() % 5 / 5
-        local color = Color3.fromHSV(hue, 1, 1)
-        updateMenuTheme(color)
-    end
+    -- retiré: animation Menu Rainbow
 
     -- Update Crosshair
     local showCrosshair = Config.Visuals.Crosshair.Enabled
@@ -2253,11 +2366,11 @@ end
 
 RunService.RenderStepped:Connect(function()
     updateESP()
-    triggerbotUpdate()
     updateMovement()
     updateGodMode()
     spinbotUpdate()
     aimAssistUpdate()
+    updateStraightBullets()
     updateHitboxes()
     updateVisuals()
     autoClickerUpdate()
@@ -2316,8 +2429,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
         if not AimlockPressed then CurrentTarget = nil end
     end
     
-    if input.KeyCode == Config.Triggerbot.Key then TriggerActive = not TriggerActive end
-    
     if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightControl then
         MainFrame.Visible = not MainFrame.Visible
         ScreenGui.Enabled = MainFrame.Visible
@@ -2375,10 +2486,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
             end
         end
     end
-    if input.KeyCode == Enum.KeyCode.End and Config.Misc.QuickExit then
-        log("Sortie rapide activée")
-        game:Shutdown()
-    end
+    -- retiré: Quick Exit via touche End
 end)
 
 UserInputService.InputEnded:Connect(function(input)
