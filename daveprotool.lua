@@ -21,7 +21,7 @@ end
 local Config = {
     Aimbot = {
         Enabled = false,
-        Key = Enum.UserInputType.MouseButton2,
+        Key = Enum.KeyCode.J,
         Smoothness = 0.5,
         FOV = 150,
         ShowFOV = true,
@@ -152,7 +152,7 @@ local Config = {
         AutoBypass = true,
         QuickExit = false,
         Waypoints = {}
-    }
+    },
 }
 
 -- ========== CONSTANTES ESP ==========
@@ -1013,12 +1013,34 @@ function Library:CreateWindow()
     MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 550, 0, 420)
-    MainFrame.Position = UDim2.new(0.5, -275, 0.5, -210)
+    MainFrame.Position = UDim2.new(1, -570, 0, 20)
     MainFrame.BackgroundColor3 = Theme.Background
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
-    MainFrame.Draggable = true
+    MainFrame.Draggable = false
     MainFrame.Parent = ScreenGui
+    
+    local dragging = false
+    local dragStart
+    local startPos
+    MainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
     
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 4)
     local MainStroke = Instance.new("UIStroke", MainFrame)
@@ -1868,8 +1890,8 @@ function Library:CreateWindow()
      
      Players.PlayerAdded:Connect(refreshPlayerList)
      Players.PlayerRemoving:Connect(refreshPlayerList)
- 
-     -- Scripts Content
+
+    -- Scripts Content
     addButton(ScriptsTab, "Blox Fruit", function()
         log("Lancement de Blox Fruit...")
         loadstring(game:HttpGet("https://raw.githubusercontent.com/TheDarkoneMarcillisePex/Other-Scripts/refs/heads/main/Bloxfruits%20script"))()
@@ -2173,6 +2195,18 @@ UserInputService.InputBegan:Connect(function(input, gp)
     if input.KeyCode == Config.Movement.NoClipKey then
         Config.Movement.NoClip = not Config.Movement.NoClip
         log("NoClip: " .. (Config.Movement.NoClip and "Activé" or "Désactivé"))
+        
+        -- Réinitialiser les collisions immédiatement si désactivé
+        if not Config.Movement.NoClip then
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end
     end
     
     if Config.Movement.Sprint.Enabled and input.KeyCode == Enum.KeyCode.LeftShift then
