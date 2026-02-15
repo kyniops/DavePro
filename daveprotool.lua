@@ -56,9 +56,7 @@ local Config = {
             Speed = 50,
             AscendSpeed = 30,
             NoFallDamage = true,
-            EnergyEnabled = false,
-            Energy = 100,
-            MaxEnergy = 100
+            
         },
         Sprint = {
             Enabled = false,
@@ -128,7 +126,6 @@ local Config = {
         Chams = false,
         ChamsColor = Color3.fromRGB(255, 255, 255),
         Highlight = {Enabled = false, Color = Color3.fromRGB(255, 255, 255), Transparency = 0.5},
-        FOVColor = Color3.fromRGB(255, 255, 255),
         FOVTransparency = 0.5,
         FOVColorRGB = {R = 255, G = 255, B = 255},
         AccentColor = {R = 255, G = 255, B = 255},
@@ -144,7 +141,6 @@ local Config = {
             Message = "Dave Pro Tool On Top!",
             Delay = 3
         },
-        AutoBypass = true,
         Waypoints = {}
     },
 }
@@ -799,14 +795,6 @@ local function updateMovement()
         if Config.Movement.Fly.NoFallDamage and hrp.Velocity.Y < -30 then
             hrp.Velocity = Vector3.new(hrp.Velocity.X, -30, hrp.Velocity.Z)
         end
-        if Config.Movement.Fly.EnergyEnabled then
-            Config.Movement.Fly.Energy = math.max(0, Config.Movement.Fly.Energy - 0.1)
-            if Config.Movement.Fly.Energy == 0 then
-                toggleFly()
-                log("Énergie de vol épuisée")
-            end
-        end
-
         local cam = getCamera()
         local moveDir = Vector3.new(0,0,0)
         
@@ -826,9 +814,6 @@ local function updateMovement()
         
         if FlyGyro then FlyGyro.CFrame = cam.CFrame end
     else
-        if Config.Movement.Fly.EnergyEnabled then
-            Config.Movement.Fly.Energy = math.min(Config.Movement.Fly.MaxEnergy, Config.Movement.Fly.Energy + 0.05)
-        end
         if Config.Movement.Fly.NoFallDamage and hum.FloorMaterial ~= Enum.Material.Air then
             hrp.Velocity = Vector3.new(hrp.Velocity.X, math.max(hrp.Velocity.Y, -15), hrp.Velocity.Z)
         end
@@ -1891,7 +1876,6 @@ function Library:CreateWindow()
     
     addButton(MiscTab, "Server Hop", serverHop)
     addButton(MiscTab, "Rejoindre Serveur", rejoinServer)
-    addToggle(MiscTab, "Anti-Cheat Bypass", true, function(v) log("Anti-cheat bypass: " .. tostring(v)) end)
     -- retiré: Quick Exit (Touche Fin)
     -- retiré: Consommation Énergie Vol
     local currentProfileName = "Profile1"
@@ -2010,6 +1994,51 @@ function Library:CreateWindow()
             log("Erreur: Aucun joueur sélectionné ou joueur hors ligne")
         end
     end)
+    
+    local AnnoyPlayerActive = false
+    local function startAnnoyPlayer()
+        if not selectedTeleportPlayer or not selectedTeleportPlayer.Character then
+            log("Erreur: Aucun joueur sélectionné")
+            AnnoyPlayerActive = false
+            return
+        end
+        local backFar = 12
+        local backNear = 1.5
+        local speed = 220 -- studs/sec
+        local freq = 2.4  -- oscillations/sec
+        local phase = 0
+        playEmoteById("rbxassetid://82682811348660")
+        task.spawn(function()
+            local last = tick()
+            while AnnoyPlayerActive do
+                local now = tick()
+                local dt = now - last
+                last = now
+                local targetHRP = selectedTeleportPlayer.Character and selectedTeleportPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if not targetHRP or not myHRP then break end
+                
+                phase = phase + dt * 2 * math.pi * freq
+                local osc = 0.5 + 0.5 * math.sin(phase)
+                local offset = backNear + (backFar - backNear) * osc
+                
+                local goalCF = targetHRP.CFrame * CFrame.new(0, 0, offset)
+                local goalPos = goalCF.Position
+                local curPos = myHRP.Position
+                local dir = goalPos - curPos
+                local dist = dir.Magnitude
+                if dist > 0 then
+                    local stepDist = math.min(speed * dt, dist)
+                    local newPos = curPos + dir.Unit * stepDist
+                    local rotOnly = targetHRP.CFrame - targetHRP.Position
+                    myHRP.CFrame = CFrame.new(newPos) * rotOnly
+                end
+                
+                task.wait() -- yield to next frame
+            end
+            stopEmotes()
+        end)
+    end
     addButton(TeleportTab, "Téléportation aléatoire", function()
         local players = Players:GetPlayers()
         local randomPlayer = players[math.random(1, #players)]
@@ -2019,6 +2048,61 @@ function Library:CreateWindow()
                 hrp.CFrame = randomPlayer.Character.HumanoidRootPart.CFrame
                 log("TP vers: " .. randomPlayer.Name)
             end
+        end
+    end)
+    addToggle(TeleportTab, "Annoy Player", false, function(v)
+        AnnoyPlayerActive = v
+        if v then
+            startAnnoyPlayer()
+        else
+            stopEmotes()
+        end
+    end)
+    
+    local BangPlayerActive = false
+    local function startBangPlayer()
+        if not selectedTeleportPlayer or not selectedTeleportPlayer.Character then
+            log("Erreur: Aucun joueur sélectionné")
+            BangPlayerActive = false
+            return
+        end
+        local backOffset = 1
+        local speed = 260
+        playEmoteById("rbxassetid://130984232537362")
+        task.spawn(function()
+            local last = tick()
+            while BangPlayerActive do
+                local now = tick()
+                local dt = now - last
+                last = now
+                local targetHRP = selectedTeleportPlayer.Character and selectedTeleportPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if not targetHRP or not myHRP then break end
+                
+                local goalCF = targetHRP.CFrame * CFrame.new(0, 0, backOffset)
+                local goalPos = goalCF.Position
+                local curPos = myHRP.Position
+                local dir = goalPos - curPos
+                local dist = dir.Magnitude
+                if dist > 0 then
+                    local stepDist = math.min(speed * dt, dist)
+                    local newPos = curPos + dir.Unit * stepDist
+                    local rotOnly = targetHRP.CFrame - targetHRP.Position
+                    myHRP.CFrame = CFrame.new(newPos) * rotOnly
+                end
+                
+                task.wait()
+            end
+            stopEmotes()
+        end)
+    end
+    addToggle(TeleportTab, "Bang Player", false, function(v)
+        BangPlayerActive = v
+        if v then
+            AnnoyPlayerActive = false
+            startBangPlayer()
+        else
+            stopEmotes()
         end
     end)
 
