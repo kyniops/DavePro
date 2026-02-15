@@ -1812,7 +1812,7 @@ function Library:CreateWindow()
     -- Movement Content - TOUS LES ÉLÉMENTS
     addToggle(MovementTab, "Mode Vol (Fly)", Config.Movement.Fly.Enabled, function(v) Config.Movement.Fly.Enabled = v if v == false and Flying then toggleFly() end end)
     addKeybind(MovementTab, "Touche Vol", Config.Movement.Fly.Key, function(v) Config.Movement.Fly.Key = v end)
-    addSlider(MovementTab, "Vitesse Vol", 10, 250, Config.Movement.Fly.Speed, function(v) Config.Movement.Fly.Speed = v end)
+    addSlider(MovementTab, "Vitesse Vol", 10, 500, Config.Movement.Fly.Speed, function(v) Config.Movement.Fly.Speed = v end)
     addToggle(MovementTab, "NoClip", Config.Movement.NoClip, function(v) Config.Movement.NoClip = v end)
     addKeybind(MovementTab, "Touche NoClip", Config.Movement.NoClipKey, function(v) Config.Movement.NoClipKey = v end)
     addToggle(MovementTab, "Speed Hack", Config.Movement.SpeedHack.Enabled, function(v) Config.Movement.SpeedHack.Enabled = v end)
@@ -1993,6 +1993,73 @@ function Library:CreateWindow()
         else
             log("Erreur: Aucun joueur sélectionné ou joueur hors ligne")
         end
+    end)
+    addButton(TeleportTab, "Fling Player", function()
+        if not selectedTeleportPlayer or not selectedTeleportPlayer.Character then
+            log("Erreur: Aucun joueur sélectionné")
+            return
+        end
+        local targetChar = selectedTeleportPlayer.Character
+        local targetRP = targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("Torso")
+        local myChar = LocalPlayer.Character
+        local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+        local myRP = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar:FindFirstChild("Torso"))
+        if not targetRP or not myHum or not myRP then
+            log("Erreur: Humanoid introuvable")
+            return
+        end
+        local savedCF = myRP.CFrame
+        local tool = Instance.new("Tool")
+        tool.RequiresHandle = true
+        tool.Name = "FlingTool"
+        local handle = Instance.new("Part")
+        handle.Name = "Handle"
+        handle.Size = Vector3.new(5,5,5)
+        handle.Transparency = 1
+        handle.LocalTransparencyModifier = 1
+        handle.CastShadow = false
+        handle.CanQuery = false
+        handle.CanCollide = true
+        handle.Massless = false
+        handle.Parent = tool
+        tool.Parent = LocalPlayer.Backpack
+        myHum:EquipTool(tool)
+        task.wait()
+        handle = myChar:FindFirstChild("Handle") or handle
+        if not handle then
+            log("Erreur: Handle indisponible")
+            return
+        end
+        local RNG = Random.new()
+        local start = tick()
+        while tick() - start < 1.0 do
+            myRP.CFrame = targetRP.CFrame * CFrame.new(0, 0, 1.2)
+            local av = Vector3.new(0, 6500, 0)
+            local lvDir = (targetRP.Position - handle.Position)
+            local lv = lvDir.Magnitude > 0 and lvDir.Unit * 1200 or Vector3.new(0,0,0)
+            handle.AssemblyAngularVelocity = av
+            handle.AssemblyLinearVelocity = lv + RNG:NextUnitVector() * 300
+            RunService.Heartbeat:Wait()
+        end
+        task.delay(2, function()
+            if myRP and myRP.Parent then
+                local returnCF = savedCF
+                for i=1,3 do
+                    myRP.Anchored = true
+                    myRP.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                    myRP.AssemblyAngularVelocity = Vector3.new(0,0,0)
+                    if myChar and myChar.Parent then
+                        myChar:PivotTo(returnCF)
+                    else
+                        myRP.CFrame = returnCF
+                    end
+                    RunService.Heartbeat:Wait()
+                end
+                myRP.Anchored = false
+            end
+        end)
+        pcall(function() tool:Destroy() end)
+        log("Fling Player exécuté sur " .. selectedTeleportPlayer.Name)
     end)
     
     local AnnoyPlayerActive = false
@@ -2501,7 +2568,20 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 local char = LocalPlayer.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
                 if hrp then
-                    hrp.CFrame = CFrame.new(mouse.Hit.p + Vector3.new(0, 3, 0))
+                    local targetPos = mouse.Hit.p + Vector3.new(0, 3, 0)
+                    local startPos = hrp.Position
+                    local dir = (targetPos - startPos)
+                    local dist = dir.Magnitude
+                    if dist == 0 then return end
+                    local step = 150
+                    local steps = math.ceil(dist / step)
+                    local unit = dir.Unit
+                    for i = 1, steps do
+                        local ratio = math.clamp(i * step, 0, dist)
+                        local pos = startPos + unit * ratio
+                        hrp.CFrame = CFrame.new(pos)
+                        RunService.Heartbeat:Wait()
+                    end
                     log("Téléporté à la position de la souris")
                 end
             end
