@@ -67,7 +67,7 @@ local Config = {
         },
         SuperJump = {
             Enabled = false,
-            PowerMultiplier = 2.5,
+            PowerMultiplier = 1,
             DoubleJumpEnabled = false,
             ReduceFallDamage = true
         },
@@ -271,6 +271,19 @@ local function worldToScreen(position)
     local Camera = getCamera()
     local screenPos, onScreen = Camera:WorldToViewportPoint(position)
     return Vector2.new(screenPos.X, screenPos.Y), onScreen, screenPos.Z
+end
+
+local function isPNJOrDie()
+    local okPlace, placeId = pcall(function() return game.PlaceId end)
+    if okPlace and placeId == 11276071411 then
+        return true
+    end
+    local okName, name = pcall(function() return game.Name end)
+    if not okName or not name then return false end
+    name = string.lower(name)
+    if string.find(name, "npc ou die", 1, true) then return true end
+    if string.find(name, "pnj or die", 1, true) then return true end
+    return false
 end
 
 local function isVisible(targetPart)
@@ -603,7 +616,7 @@ local function updateESP()
             continue
         end
 
-        if Config.ESP.TeamCheck and player.Team == LocalPlayer.Team then
+        if Config.ESP.TeamCheck and not isPNJOrDie() and player.Team == LocalPlayer.Team then
             for _, v in pairs(data.Box) do v.Visible = false end
             for _, v in pairs(data.HealthBar) do v.Visible = false end
             for _, v in pairs(data.Skeleton) do v.Visible = false end
@@ -1162,19 +1175,22 @@ function Library:CreateWindow()
 
     RestoreBtn = Instance.new("TextButton")
     RestoreBtn.Name = "RestoreBtn"
-    RestoreBtn.Size = UDim2.new(0, 40, 0, 40)
+    RestoreBtn.Size = UDim2.new(0, 120, 0, 40)
     RestoreBtn.Position = UDim2.new(0, 20, 0.5, -20)
-    RestoreBtn.BackgroundColor3 = Theme.Background
-    RestoreBtn.Text = "P"
-    RestoreBtn.TextColor3 = Theme.Accent
+    RestoreBtn.BackgroundColor3 = Theme.Secondary
+    RestoreBtn.Text = "DAVE"
+    RestoreBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RestoreBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    RestoreBtn.TextStrokeTransparency = 0.4
     RestoreBtn.Font = Enum.Font.GothamBold
-    RestoreBtn.TextSize = 20
+    RestoreBtn.TextSize = 22
     RestoreBtn.Visible = false
     RestoreBtn.Parent = ScreenGui
-    Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(0, 5)
+    Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(0, 10)
     local RestoreStroke = Instance.new("UIStroke", RestoreBtn)
     RestoreStroke.Color = Theme.Accent
-    RestoreStroke.Thickness = 1
+    RestoreStroke.Thickness = 2
+    
     
     MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
@@ -1233,25 +1249,6 @@ function Library:CreateWindow()
             end
         end)
     end
-    
-    local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 24, 0, 24)
-    CloseBtn.Position = UDim2.new(1, -30, 0, 6)
-    CloseBtn.BackgroundColor3 = Theme.Secondary
-    CloseBtn.Text = "X"
-    CloseBtn.TextColor3 = Theme.Text
-    CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.TextSize = 12
-    CloseBtn.Parent = MainFrame
-    Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
-    local CloseStroke = Instance.new("UIStroke", CloseBtn)
-    CloseStroke.Color = Theme.Accent
-    CloseStroke.Thickness = 1
-    CloseBtn.MouseButton1Click:Connect(function()
-        MainFrame.Visible = false
-        ScreenGui.Enabled = false
-        if RestoreBtn then RestoreBtn.Visible = true end
-    end)
     
     local TopDrag = Instance.new("Frame")
     TopDrag.Size = UDim2.new(1, 0, 0, 28)
@@ -1368,7 +1365,8 @@ function Library:CreateWindow()
     
     local CloseBtn = Instance.new("TextButton")
     CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-    CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+    CloseBtn.AnchorPoint = Vector2.new(1, 0)
+    CloseBtn.Position = UDim2.new(1, 4, 0, -8)
     CloseBtn.BackgroundTransparency = 1
     CloseBtn.Text = "×"
     CloseBtn.TextColor3 = Theme.TextDim
@@ -1385,6 +1383,16 @@ function Library:CreateWindow()
         RestoreBtn.Visible = true
     end)
     
+    RestoreBtn.MouseEnter:Connect(function()
+        RestoreBtn.BackgroundColor3 = Theme.Hover
+        RestoreBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        RestoreBtn.TextStrokeTransparency = 0.2
+    end)
+    RestoreBtn.MouseLeave:Connect(function()
+        RestoreBtn.BackgroundColor3 = Theme.Secondary
+        RestoreBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        RestoreBtn.TextStrokeTransparency = 0.4
+    end)
     RestoreBtn.MouseButton1Click:Connect(function()
         MainFrame.Visible = true
         RestoreBtn.Visible = false
@@ -1671,7 +1679,12 @@ function Library:CreateWindow()
     local selectedTeleportPlayer = nil
     
     -- Aimbot Content
-    addToggle(AimbotTab, "Activer Aimbot", Config.Aimbot.Enabled, function(v) Config.Aimbot.Enabled = v if FOVCircle then FOVCircle.Visible = v and Config.Aimbot.ShowFOV end end)
+    addToggle(AimbotTab, "Activer Aimbot", Config.Aimbot.Enabled, function(v)
+        Config.Aimbot.Enabled = v
+        AimlockPressed = v
+        if not v then CurrentTarget = nil end
+        if FOVCircle then FOVCircle.Visible = v and Config.Aimbot.ShowFOV end
+    end)
     addKeybind(AimbotTab, "Touche Aimbot", Config.Aimbot.Key, function(v) Config.Aimbot.Key = v end)
     addSlider(AimbotTab, "Lissage (Smooth)", 0, 0.95, Config.Aimbot.Smoothness, function(v) Config.Aimbot.Smoothness = v end)
     addSlider(AimbotTab, "Rayon FOV", 10, 800, Config.Aimbot.FOV, function(v) Config.Aimbot.FOV = v end)
@@ -2302,6 +2315,10 @@ function Library:CreateWindow()
     addButton(ScriptsTab, "Blox Fruit", function()
         log("Lancement de Blox Fruit...")
         loadstring(game:HttpGet("https://raw.githubusercontent.com/TheDarkoneMarcillisePex/Other-Scripts/refs/heads/main/Bloxfruits%20script"))()
+    end)
+    addButton(ScriptsTab, "The Forge", function()
+        log("Lancement de The Forge...")
+        loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/2529a5f9dfddd5523ca4e22f21cceffa.lua"))()
     end)
 
     -- Initialisation du premier onglet
