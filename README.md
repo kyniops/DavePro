@@ -1,84 +1,233 @@
-C'est une excellente idée. Pour rendre ton texte professionnel et pratique, le mieux est d'ajouter une section "Démarrage Rapide" tout en haut du document. Cela permet aux utilisateurs de copier le script immédiatement sans avoir à chercher dans les descriptions.
+💎 DAVE PRO TOOL V3 – Roblox Utility Script
 
-Voici ton texte mis à jour et structuré proprement :
+DAVE PRO TOOL V3 est un tool Roblox complet regroupant Aimbot, ESP, Mouvement, Combat, Téléportation, Visuels, Emotes et outils divers, le tout dans une interface moderne, configurable et sauvegardée automatiquement.
 
-💎 DAVE PRO TOOL V3
-DAVE PRO TOOL est un script complet pour Roblox regroupant Aimbot, ESP, Movement, Visuals, Téléportation, emotes et quelques outils divers, le tout dans une interface propre et configurable.
+⚠️ Utilisation à tes risques et périls.
+Les scripts peuvent entraîner des sanctions sur certains jeux ou sur ton compte Roblox.
 
-🚀 Lancement Rapide (Loader)
-Copie et colle cette ligne dans ton exécuteur pour lancer la dernière version :
-
-Lua
+🚀 Loader rapide (recommandé)
+-- DAVE PRO TOOL V3 - Loader officiel
 loadstring(game:HttpGet("https://raw.githubusercontent.com/kyniops/DavePro/refs/heads/main/daveprotool.lua"))()
-⚙️ Installation / Chargement
-Ouvre ton exécuteur/script-executor Roblox (Solara, Wave, Synapse, etc.).
 
-Copie le code du loader ci-dessus ou le contenu complet du fichier daveprotool.lua.
+📌 Instructions
 
-Une fois le script chargé, l’interface DAVE PRO TOOL apparaît à l’écran.
+Ouvre ton exécuteur Roblox (Synapse, KRNL, Fluxus, etc.)
 
-Raccourci : Tu peux masquer/afficher le menu avec la touche configurée (par défaut Insert ou RightControl). Le tool sauvegarde automatiquement une config dans un fichier JSON.
+Colle le loader ci-dessus
 
-🧠 Onglet Aimbot
-Activer Aimbot : Lock automatique sur les joueurs dans le FOV.
+Exécute → le menu DAVE PRO TOOL apparaît automatiquement
 
-Lissage (Smooth) : Pour un mouvement de caméra plus naturel et moins "robotique".
+🧠 Le tool sauvegarde automatiquement ta configuration en JSON si writefile/readfile sont disponibles.
+⌨️ Menu : Insert ou RightControl (configurable)
 
-Rayon FOV : Cercle de détection ajustable à l'écran.
+📂 Chargement manuel (optionnel)
 
-Checks : Team Check (ignore les alliés) et Visible Check (ne tire pas à travers les murs).
+Télécharge daveprotool.lua
 
-Options avancées : Auto Shoot, No Spread (tirs droits), et sélection de la cible (Tête/Torse).
+Copie tout le contenu
 
-👁️ Onglet ESP (Wallhack)
-Boxes & Squelettes : Visualise les joueurs à travers les obstacles.
+Colle-le dans ton exécuteur
 
-Infos : Affiche la Barre de Vie, les Noms et la Distance.
+Exécute le script
 
-Traceurs (Tracers) : Lignes reliant ton écran aux joueurs adverses.
+🧠 Fonctionnalités
+🎯 Aimbot
 
-👟 Onglet Mouvement
-Mode Vol (Fly) : Vol libre avec vitesse réglable (10 à 500).
+Activation / Désactivation
 
-NoClip : Passe à travers les murs et les objets.
+Aimlock avec touche
 
-Améliorations : Speed Hack, Super Saut, Saut Infini et Bunny Hop.
+Smooth (lissage)
 
-Sécurité : Anti-dégâts de chute intégré.
+FOV ajustable + affichage
 
-⚔️ Onglet Combat
-KillAura & Reach : Frappe les ennemis automatiquement ou de plus loin.
+Team Check
 
-Hitbox Expander : Agrandi la zone où tu peux toucher tes adversaires.
+Visible Check (raycast)
 
-SpinBot : Te fait tourner rapidement pour devenir difficile à viser.
+Ignore véhicules
 
-✨ Onglet Visuels & Interface
-Chams : Colore les modèles des joueurs pour mieux les voir.
+Sticky Lock
 
-FullBright & NoFog : Supprime l'obscurité et le brouillard du jeu.
+Auto Shoot
 
-Personnalisation : Change les couleurs du menu, de l'ESP et du crosshair.
+No Spread
 
-FPS Boost : Désactive certains éléments gourmands pour gagner en fluidité.
+Distance maximale
 
-📍 Onglet Téléportation & Troll
-Click TP : Téléporte-toi là où tu cliques (Ctrl + Clic Gauche).
+Cible : Tête / Torse
 
-Player TP : Rejoins n'importe quel joueur instantanément.
+👁️ ESP
 
-Fling Player : Envoie valser les autres joueurs (Troll).
+ESP On/Off
 
-Waypoints : Enregistre des positions précises pour y revenir plus tard.
+Boxes
 
-🛠️ Onglet Divers & Configs
-Anti-AFK : Empêche d'être déconnecté après 20 minutes d'inactivité.
+Squelettes
 
-Chat Spammer : Envoie des messages automatiques avec un délai réglable.
+Barre de vie
 
-Gestion de Profils : Sauvegarde tes réglages pour ne pas avoir à tout refaire à chaque session.
+Noms
 
-⚠️ Avertissement
-L’utilisation de scripts sur Roblox peut entraîner des bannissements de jeux spécifiques, voire des sanctions sur ton compte global. Utilise ce tool à tes risques et périls.
+Distance
 
-✅ STATUT : PRO TOOL V3.3 - TOUS LES ONGLETS OPÉRATIONNELS
+Tracers
+
+Team Check
+
+Visible uniquement
+
+ESP Loot / Items (placeholder)
+
+Distance max
+
+Couleurs configurables
+
+👟 Mouvement
+
+Fly (vol libre)
+
+NoClip
+
+Speed Hack
+
+Sprint amélioré
+
+Super Jump
+
+Double Jump
+
+Infinite Jump
+
+Bunny Hop
+
+Auto Jump
+
+Anti dégâts de chute
+
+Réduction dégâts chute
+
+⚔️ Combat
+
+SpinBot
+
+AimAssist
+
+Hitbox Expander
+
+Reach
+
+KillAura
+
+AutoClicker
+
+FOV Changer
+
+GodMode (selon le jeu)
+
+✨ Visuels
+
+Chams / Wallhack
+
+Highlight ESP
+
+FullBright
+
+NoFog
+
+Transparence FOV
+
+Time Changer
+
+Crosshair
+
+Anti-Lag / FPS Boost
+
+Mode Streamer
+
+Couleurs :
+
+Menu
+
+ESP
+
+FOV
+
+Reset couleurs
+
+🕺 Emotes
+
+Emotes via ID d’animation
+
+Mode hélicoptère (fallback)
+
+Arrêt propre des animations
+
+📍 Téléportation
+
+Liste des joueurs + recherche
+
+Téléportation vers joueur
+
+Click Teleport (Ctrl + Click)
+
+Téléportation aléatoire
+
+Fling Player
+
+Annoy Player
+
+Bang Player
+
+Waypoints :
+
+Sauvegarde position
+
+Téléportation
+
+Suppression complète
+
+📜 Scripts
+
+Chargement de scripts externes via loadstring(game:HttpGet(...))
+
+🛠️ Divers (Misc)
+
+Anti-AFK
+
+Chat Spammer
+
+Message personnalisable
+
+Délai configurable
+
+Profils / Config :
+
+Sauvegarder
+
+Charger
+
+Reset par défaut
+
+🧪 Tests internes
+
+À la fin du chargement, plusieurs tests sont exécutés (Aimbot, ESP, UI, Mouvement, etc.).
+
+✔️ Message final :
+
+💎 PRO TOOL V3.3 - TOUS LES ONGLETS CORRIGÉS ✅
+
+⚠️ Avertissement légal
+
+Ce script est fourni à but éducatif.
+L’auteur n’est pas responsable des sanctions, bannissements ou pertes de compte liées à son utilisation.
+
+⭐ Support
+
+Si le tool t’a été utile :
+
+⭐ Star le repo
+
+🔄 Partage-le
+
+🐞 Report les bugs / suggestions
