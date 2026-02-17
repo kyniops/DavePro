@@ -1197,7 +1197,7 @@ function Library:CreateWindow()
     MainFrame.Size = UDim2.new(0, 550, 0, 420)
     MainFrame.Position = UDim2.new(1, -570, 0, 20)
     MainFrame.BackgroundColor3 = Theme.Background
-    MainFrame.BackgroundTransparency = 0.18zd
+    MainFrame.BackgroundTransparency = 0.18
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
     MainFrame.Draggable = false
