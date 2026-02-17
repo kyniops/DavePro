@@ -1197,7 +1197,7 @@ function Library:CreateWindow()
     MainFrame.Size = UDim2.new(0, 550, 0, 420)
     MainFrame.Position = UDim2.new(1, -570, 0, 20)
     MainFrame.BackgroundColor3 = Theme.Background
-    MainFrame.BackgroundTransparency = 0.18
+    MainFrame.BackgroundTransparency = 0.18zd
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
     MainFrame.Draggable = false
@@ -1681,9 +1681,9 @@ function Library:CreateWindow()
     local function addButton(parent, text, callback)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, -10, 0, 35)
-        btn.BackgroundColor3 = Theme.Accent
+        btn.BackgroundColor3 = Theme.Secondary
         btn.Text = text:upper()
-        btn.TextColor3 = Theme.Background
+        btn.TextColor3 = Theme.Text
         btn.Font = Enum.Font.GothamBold
         btn.TextSize = 12
         btn.Parent = parent
@@ -1983,7 +1983,7 @@ function Library:CreateWindow()
     playerLabel.Position = UDim2.new(0, 10, 0, 0)
     playerLabel.BackgroundTransparency = 1
     playerLabel.Text = "SÉLECTIONNER UN JOUEUR"
-    playerLabel.TextColor3 = Theme.TextDim
+    playerLabel.TextColor3 = Theme.Text
     playerLabel.Font = Enum.Font.GothamSemibold
     playerLabel.TextSize = 10
     playerLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2221,7 +2221,7 @@ function Library:CreateWindow()
     waypointLabel.Size = UDim2.new(1, -10, 0, 30)
     waypointLabel.BackgroundTransparency = 1
     waypointLabel.Text = "POINTS DE PASSAGE (WAYPOINTS)"
-    waypointLabel.TextColor3 = Theme.TextDim
+    waypointLabel.TextColor3 = Theme.Text
     waypointLabel.Font = Enum.Font.GothamSemibold
     waypointLabel.TextSize = 10
     waypointLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -2278,7 +2278,7 @@ function Library:CreateWindow()
             tpBtn.Position = UDim2.new(0.65, 0, 0.1, 0)
             tpBtn.BackgroundColor3 = Theme.Accent
             tpBtn.Text = "TP"
-            tpBtn.TextColor3 = Theme.Background
+            tpBtn.TextColor3 = Theme.Text
             tpBtn.Font = Enum.Font.GothamBold
             tpBtn.TextSize = 10
             tpBtn.Parent = frame
@@ -2385,7 +2385,7 @@ function Library:CreateWindow()
         sfClose.Position = UDim2.new(1, -28, 0, 6)
         sfClose.BackgroundTransparency = 1
         sfClose.Text = "×"
-        sfClose.TextColor3 = Theme.TextDim
+        sfClose.TextColor3 = Theme.Text
         sfClose.Font = Enum.Font.GothamBold
         sfClose.TextSize = 20
         sfClose.Parent = StarFishingUI
@@ -2393,7 +2393,7 @@ function Library:CreateWindow()
             sfClose.TextColor3 = Theme.Accent
         end)
         sfClose.MouseLeave:Connect(function()
-            sfClose.TextColor3 = Theme.TextDim
+            sfClose.TextColor3 = Theme.Text
         end)
         sfClose.MouseButton1Click:Connect(function()
             StarFishingUI.Visible = false
