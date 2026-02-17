@@ -1179,7 +1179,7 @@ function Library:CreateWindow()
     RestoreBtn.Position = UDim2.new(0, 20, 0.5, -20)
     RestoreBtn.BackgroundColor3 = Theme.Secondary
     RestoreBtn.Text = "DAVE"
-    RestoreBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RestoreBtn.TextColor3 = Theme.Accent
     RestoreBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     RestoreBtn.TextStrokeTransparency = 0.4
     RestoreBtn.Font = Enum.Font.GothamBold
@@ -1197,6 +1197,7 @@ function Library:CreateWindow()
     MainFrame.Size = UDim2.new(0, 550, 0, 420)
     MainFrame.Position = UDim2.new(1, -570, 0, 20)
     MainFrame.BackgroundColor3 = Theme.Background
+    MainFrame.BackgroundTransparency = 0.18
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
     MainFrame.Draggable = false
@@ -1204,15 +1205,29 @@ function Library:CreateWindow()
     
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 4)
     local MainStroke = Instance.new("UIStroke", MainFrame)
-    MainStroke.Color = Theme.Secondary
+    MainStroke.Color = Theme.Accent
     MainStroke.Thickness = 1
+    MainStroke.Transparency = 0.4
+    local MainGradient = Instance.new("UIGradient", MainFrame)
+    MainGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 35)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 15))
+    })
+    MainGradient.Rotation = 90
     
     local Sidebar = Instance.new("Frame")
     Sidebar.Name = "Sidebar"
     Sidebar.Size = UDim2.new(0, 160, 1, 0)
     Sidebar.BackgroundColor3 = Theme.Sidebar
+    Sidebar.BackgroundTransparency = 0.22
     Sidebar.Parent = MainFrame
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 4)
+    local SidebarGradient = Instance.new("UIGradient", Sidebar)
+    SidebarGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 45, 45)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 25))
+    })
+    SidebarGradient.Rotation = 0
     
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 0, 60)
@@ -1390,7 +1405,7 @@ function Library:CreateWindow()
     end)
     RestoreBtn.MouseLeave:Connect(function()
         RestoreBtn.BackgroundColor3 = Theme.Secondary
-        RestoreBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        RestoreBtn.TextColor3 = Theme.Accent
         RestoreBtn.TextStrokeTransparency = 0.4
     end)
     RestoreBtn.MouseButton1Click:Connect(function()
@@ -1402,13 +1417,21 @@ function Library:CreateWindow()
     StatsHUD.Size = UDim2.new(0, 140, 0, 36)
     StatsHUD.Position = UDim2.new(1, -150, 1, -45)
     StatsHUD.BackgroundColor3 = Theme.Secondary
+    StatsHUD.BackgroundTransparency = 0.22
     StatsHUD.Visible = false
     StatsHUD.Parent = MainFrame
     Instance.new("UICorner", StatsHUD).CornerRadius = UDim.new(0, 4)
     local hudStroke = Instance.new("UIStroke", StatsHUD)
     hudStroke.Color = Theme.Accent
     hudStroke.Thickness = 1
-    hudStroke.Enabled = false
+    hudStroke.Transparency = 0.5
+    hudStroke.Enabled = true
+    local hudGradient = Instance.new("UIGradient", StatsHUD)
+    hudGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 40)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20))
+    })
+    hudGradient.Rotation = 90
     
     FpsLabel = Instance.new("TextLabel")
     FpsLabel.Size = UDim2.new(1, -10, 0, 16)
@@ -1436,6 +1459,7 @@ function Library:CreateWindow()
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(1, -10, 0, 35)
         frame.BackgroundColor3 = Theme.Secondary
+        frame.BackgroundTransparency = 0.2
         frame.Parent = parent
         Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
         
@@ -1484,6 +1508,7 @@ function Library:CreateWindow()
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(1, -10, 0, 50)
         frame.BackgroundColor3 = Theme.Secondary
+        frame.BackgroundTransparency = 0.2
         frame.Parent = parent
         Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
         
@@ -1566,6 +1591,7 @@ function Library:CreateWindow()
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(1, -10, 0, 35)
         frame.BackgroundColor3 = Theme.Secondary
+        frame.BackgroundTransparency = 0.2
         frame.Parent = parent
         Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
         
@@ -1617,6 +1643,7 @@ function Library:CreateWindow()
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(1, -10, 0, 50)
         frame.BackgroundColor3 = Theme.Secondary
+        frame.BackgroundTransparency = 0.2
         frame.Parent = parent
         Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
         
@@ -1730,6 +1757,7 @@ function Library:CreateWindow()
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(1, -10, 0, 60)
         frame.BackgroundColor3 = Theme.Secondary
+        frame.BackgroundTransparency = 0.2
         frame.Parent = parent
         Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
         
@@ -1922,6 +1950,7 @@ function Library:CreateWindow()
     local playerListFrame = Instance.new("Frame")
     playerListFrame.Size = UDim2.new(1, -10, 0, 240) -- Augmenté pour la barre de recherche
     playerListFrame.BackgroundColor3 = Theme.Secondary
+    playerListFrame.BackgroundTransparency = 0.2
     playerListFrame.Parent = TeleportTab
     Instance.new("UICorner", playerListFrame).CornerRadius = UDim.new(0, 4)
 
