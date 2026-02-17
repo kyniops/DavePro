@@ -1,51 +1,42 @@
 💎 DAVE PRO TOOL V3
 
-DAVE PRO TOOL V3 est un tool Roblox tout-en-un avec une interface propre et configurable.
-Aimbot, ESP, Mouvement, Combat, Téléportation, Visuels, Emotes et plus encore 🚀
+⚡ All-in-one Roblox Tool
+Aimbot • ESP • Movement • Combat • Visuals • Teleport • Emotes • Misc
 
-🚀 Loader
+🚀 Quick Loader (Copy & Paste)
+
+🔽 Clique sur le bouton de copie dans le bloc ci-dessous
+
 loadstring(game:HttpGet("https://raw.githubusercontent.com/kyniops/DavePro/refs/heads/main/daveprotool.lua"))()
 
 
-Utilisation :
-
-Exécuteur Roblox requis (Synapse, KRNL, Fluxus…)
-
-Exécute le loader → le menu apparaît
-
-Toggle menu : Insert / RightControl
-
-Config sauvegardée automatiquement (JSON)
+✅ Compatible : Synapse, KRNL, Fluxus, etc.
+⌨️ Menu : Insert / RightControl
+💾 Config auto-save (JSON si disponible)
 
 ✨ Features
 
-🎯 Aimbot
-FOV, Smooth, Aimlock, Visible Check, Team Check, Auto Shoot, No Spread
+🎯 Aimbot (FOV, Smooth, Aimlock, Visible Check, Auto Shoot)
 
-👁️ ESP
-Boxes, Skeletons, HP, Names, Distance, Tracers
+👁️ ESP (Boxes, Skeletons, HP, Names, Tracers)
 
-👟 Mouvement
-Fly, NoClip, Speed, Sprint, Super Jump, Infinite Jump, Bunny Hop
+👟 Movement (Fly, NoClip, Speed, Bunny Hop, Infinite Jump)
 
-⚔️ Combat
-Hitbox, Reach, KillAura, AimAssist, AutoClicker, SpinBot
+⚔️ Combat (Hitbox, Reach, KillAura, AimAssist)
 
-✨ Visuels
-Chams, FullBright, NoFog, Crosshair, FPS Boost, Streamer Mode
+✨ Visuals (Chams, FullBright, NoFog, Crosshair, FPS Boost)
 
-📍 Téléportation
-TP joueur, Click TP, Random TP, Fling, Waypoints
+📍 Teleport (Player TP, Click TP, Random TP, Waypoints)
 
-🛠️ Misc
-Anti-AFK, Chat Spammer, Profiles / Configs
+🛠️ Misc (Anti-AFK, Chat Spammer, Profiles / Configs)
 
 🧪 Status
 💎 PRO TOOL V3.3 — ALL TABS FIXED ✅
 
-⚠️ Warning
+⚠️ Disclaimer
 
-L’utilisation de scripts peut entraîner des bannissements.
-Utilise ce tool à tes risques et périls.
+This script is provided for educational purposes only.
+Use at your own risk — bans may occur.
 
-⭐ Star le repo si tu aimes le tool
+⭐ Star the repo if you like the project
+🐞 Issues & suggestions are welcome
