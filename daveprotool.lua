@@ -1677,6 +1677,7 @@ function Library:CreateWindow()
     local MiscTab = createTab("Divers", "🛠️")
     
     local selectedTeleportPlayer = nil
+    local StarFishingUI = nil
     
     -- Aimbot Content
     addToggle(AimbotTab, "Activer Aimbot", Config.Aimbot.Enabled, function(v)
@@ -2319,6 +2320,117 @@ function Library:CreateWindow()
     addButton(ScriptsTab, "The Forge", function()
         log("Lancement de The Forge...")
         loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/2529a5f9dfddd5523ca4e22f21cceffa.lua"))()
+    end)
+    addButton(ScriptsTab, "Star Fishing", function()
+        log("Ouverture de l'interface Star Fishing...")
+        if StarFishingUI and StarFishingUI.Parent then
+            StarFishingUI.Visible = true
+            return
+        end
+        StarFishingUI = Instance.new("Frame")
+        StarFishingUI.Name = "StarFishingUI"
+        StarFishingUI.Size = UDim2.new(0, 220, 0, 120)
+        StarFishingUI.Position = UDim2.new(0.5, -110, 0, 60)
+        StarFishingUI.BackgroundColor3 = Theme.Secondary
+        StarFishingUI.BackgroundTransparency = 0.25
+        StarFishingUI.BorderSizePixel = 0
+        StarFishingUI.Parent = ScreenGui
+        Instance.new("UICorner", StarFishingUI).CornerRadius = UDim.new(0, 6)
+        local sfStroke = Instance.new("UIStroke", StarFishingUI)
+        sfStroke.Color = Theme.Accent
+        sfStroke.Thickness = 1
+        local sfTitle = Instance.new("TextLabel")
+        sfTitle.Name = "Title"
+        sfTitle.Size = UDim2.new(1, -40, 0, 26)
+        sfTitle.Position = UDim2.new(0, 10, 0, 6)
+        sfTitle.BackgroundTransparency = 1
+        sfTitle.Text = "Star Fishing"
+        sfTitle.TextColor3 = Theme.Text
+        sfTitle.Font = Enum.Font.GothamBold
+        sfTitle.TextSize = 16
+        sfTitle.TextXAlignment = Enum.TextXAlignment.Left
+        sfTitle.Parent = StarFishingUI
+        local sfClose = Instance.new("TextButton")
+        sfClose.Name = "Close"
+        sfClose.Size = UDim2.new(0, 24, 0, 24)
+        sfClose.Position = UDim2.new(1, -28, 0, 6)
+        sfClose.BackgroundTransparency = 1
+        sfClose.Text = "×"
+        sfClose.TextColor3 = Theme.TextDim
+        sfClose.Font = Enum.Font.GothamBold
+        sfClose.TextSize = 20
+        sfClose.Parent = StarFishingUI
+        sfClose.MouseEnter:Connect(function()
+            sfClose.TextColor3 = Theme.Accent
+        end)
+        sfClose.MouseLeave:Connect(function()
+            sfClose.TextColor3 = Theme.TextDim
+        end)
+        sfClose.MouseButton1Click:Connect(function()
+            StarFishingUI.Visible = false
+        end)
+        local dragBar = Instance.new("Frame")
+        dragBar.Size = UDim2.new(1, 0, 0, 30)
+        dragBar.BackgroundTransparency = 1
+        dragBar.Parent = StarFishingUI
+        do
+            local dragging = false
+            local dragStart, startPos
+            dragBar.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = true
+                    dragStart = input.Position
+                    startPos = StarFishingUI.Position
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                            dragging = false
+                        end
+                    end)
+                end
+            end)
+            UserInputService.InputChanged:Connect(function(input)
+                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = input.Position - dragStart
+                    StarFishingUI.Position = UDim2.new(
+                        startPos.X.Scale,
+                        startPos.X.Offset + delta.X,
+                        startPos.Y.Scale,
+                        startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+        end
+        local farmBtn = Instance.new("TextButton")
+        farmBtn.Name = "FarmButton"
+        farmBtn.Size = UDim2.new(0, 140, 0, 32)
+        farmBtn.Position = UDim2.new(0.5, -70, 0.5, -16)
+        farmBtn.BackgroundColor3 = Theme.Secondary
+        farmBtn.Text = "Farm"
+        farmBtn.TextColor3 = Theme.Text
+        farmBtn.Font = Enum.Font.GothamBold
+        farmBtn.TextSize = 16
+        farmBtn.Parent = StarFishingUI
+        Instance.new("UICorner", farmBtn).CornerRadius = UDim.new(0, 6)
+        local farmStroke = Instance.new("UIStroke", farmBtn)
+        farmStroke.Color = Theme.Accent
+        farmStroke.Thickness = 1
+        farmBtn.MouseEnter:Connect(function()
+            farmBtn.BackgroundColor3 = Theme.Hover
+        end)
+        farmBtn.MouseLeave:Connect(function()
+            farmBtn.BackgroundColor3 = Theme.Secondary
+        end)
+        farmBtn.MouseButton1Click:Connect(function()
+            log("Star Fishing: démarrage du farm auto")
+            local Flags = {
+                Farm = "Self",
+                SellAll = true,
+                SellAllDebounce = 10,
+                AutoEquipRod = true
+            }
+            getgenv().StarFishingFlags = Flags
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/afyzone/lua/refs/heads/main/Star%20Fishing/AutoFish.lua"))()
+        end)
     end)
 
     -- Initialisation du premier onglet
