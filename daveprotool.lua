@@ -87,10 +87,6 @@ local Config = {
             Enabled = false,
             Speed = 20
         },
-        AimAssist = {
-            Enabled = false,
-            Strength = 0.1
-        },
         HitboxExpander = {
             Enabled = false,
             Multiplier = 1.5,
@@ -102,15 +98,6 @@ local Config = {
         Reach = {
             Enabled = false,
             Range = 30
-        },
-        KillAura = {
-            Enabled = false,
-            Range = 20,
-            Delay = 0.1
-        },
-        AutoClicker = {
-            Enabled = false,
-            CPS = 10
         },
         FovChanger = {
             Enabled = false,
@@ -394,18 +381,6 @@ local function aimbotUpdate()
         end
     else
         CurrentTarget = nil
-    end
-end
-
-local function aimAssistUpdate()
-    if not Config.Combat.AimAssist.Enabled or AimlockPressed then return end
-    
-    local target = getClosestPlayerInFOV()
-    if target then
-        local cam = getCamera()
-        local targetPos = target.Part.Position
-        local targetCF = CFrame.lookAt(cam.CFrame.Position, targetPos)
-        cam.CFrame = cam.CFrame:Lerp(targetCF, Config.Combat.AimAssist.Strength * 0.1)
     end
 end
 
@@ -1055,64 +1030,6 @@ end
 -- ═══════════════════════════════════════════════════════════
 -- SYSTÈME COMBAT AVANCÉ
 -- ═══════════════════════════════════════════════════════════
-
-local lastClick = 0
-local function autoClickerUpdate()
-    if not Config.Combat.AutoClicker.Enabled then return end
-    
-    -- Empêcher le clic si la souris est sur le menu
-    if ScreenGui then
-        local mousePos = UserInputService:GetMouseLocation()
-        local guis = game:GetService("CoreGui"):GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
-        local overMenu = false
-        for _, gui in pairs(guis) do
-            if gui:IsDescendantOf(ScreenGui) then
-                overMenu = true
-                break
-            end
-        end
-        if overMenu then return end
-    end
-
-    local delay = 1 / Config.Combat.AutoClicker.CPS
-    if tick() - lastClick >= delay then
-        if mouse1click then
-            mouse1click()
-            lastClick = tick()
-        end
-    end
-end
-
-local lastKillAura = 0
-local function killAuraUpdate()
-    if not Config.Combat.KillAura.Enabled then return end
-    if tick() - lastKillAura < Config.Combat.KillAura.Delay then return end
-    
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    for _, player in pairs(Players:GetPlayers()) do
-        if player == LocalPlayer then continue end
-        if Config.Aimbot.TeamCheck and player.Team == LocalPlayer.Team then continue end
-        
-        local pChar = player.Character
-        local pHum = pChar and pChar:FindFirstChildOfClass("Humanoid")
-        local pHrp = pChar and pChar:FindFirstChild("HumanoidRootPart")
-        
-        if pHum and pHum.Health > 0 and pHrp then
-            local dist = (hrp.Position - pHrp.Position).Magnitude
-            if dist <= Config.Combat.KillAura.Range then
-                -- Simulation d'attaque (dépend du jeu, ici on simule un clic)
-                if mouse1click then
-                    mouse1click()
-                    lastKillAura = tick()
-                    break
-                end
-            end
-        end
-    end
-end
 
 local function reachUpdate()
     if not Config.Combat.Reach.Enabled then return end
@@ -1914,12 +1831,6 @@ function Library:CreateWindow()
     addButton(EmoteTab, "Kid Tantrum", function() playEmoteById("rbxassetid://86339673982616") end)
     addSlider(CombatTab, "Portée Reach", 1, 50, Config.Combat.Reach.Range, function(v) Config.Combat.Reach.Range = v end)
     -- retiré: doublon SpinBot (bas)
-    addToggle(CombatTab, "Aim Assist", Config.Combat.AimAssist.Enabled, function(v) Config.Combat.AimAssist.Enabled = v end)
-    addSlider(CombatTab, "Force Assist", 0.01, 0.5, Config.Combat.AimAssist.Strength, function(v) Config.Combat.AimAssist.Strength = v end)
-    addToggle(CombatTab, "Kill Aura", Config.Combat.KillAura.Enabled, function(v) Config.Combat.KillAura.Enabled = v end)
-    addSlider(CombatTab, "Portée Kill Aura", 5, 50, Config.Combat.KillAura.Range, function(v) Config.Combat.KillAura.Range = v end)
-    addToggle(CombatTab, "Auto Clicker", Config.Combat.AutoClicker.Enabled, function(v) Config.Combat.AutoClicker.Enabled = v end)
-    addSlider(CombatTab, "CPS", 1, 30, Config.Combat.AutoClicker.CPS, function(v) Config.Combat.AutoClicker.CPS = v end)
 
     -- Misc Content - TOUS LES ÉLÉMENTS
     addToggle(MiscTab, "Anti-AFK", Config.Misc.AntiAFK, function(v) Config.Misc.AntiAFK = v end)
@@ -2701,12 +2612,9 @@ RunService.RenderStepped:Connect(function()
     updateMovement()
     updateGodMode()
     spinbotUpdate()
-    aimAssistUpdate()
     updateStraightBullets()
     updateHitboxes()
     updateVisuals()
-    autoClickerUpdate()
-    killAuraUpdate()
     reachUpdate()
     updateWorldVisuals()
     updateChatSpammer()
