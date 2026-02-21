@@ -199,6 +199,7 @@ local CurrentTarget = nil
 local ESPObjects = {}
 local FOVCircle = nil
 local Flying = false
+local NoClipActive = false
 local Sprinting = false
 local DoubleJumped = false
 local CanDoubleJump = false
@@ -838,7 +839,7 @@ local function updateMovement()
         end
     end
 
-    if Config.Movement.NoClip then
+    if NoClipActive then
         for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") and part.CanCollide then
                 part.CanCollide = false
@@ -1855,7 +1856,20 @@ function Library:CreateWindow()
     addToggle(MovementTab, "Mode Vol (Fly)", Config.Movement.Fly.Enabled, function(v) Config.Movement.Fly.Enabled = v if v == false and Flying then toggleFly() end end)
     addKeybind(MovementTab, "Touche Vol", Config.Movement.Fly.Key, function(v) Config.Movement.Fly.Key = v end)
     addSlider(MovementTab, "Vitesse Vol", 10, 500, Config.Movement.Fly.Speed, function(v) Config.Movement.Fly.Speed = v end)
-    addToggle(MovementTab, "NoClip", Config.Movement.NoClip, function(v) Config.Movement.NoClip = v end)
+    addToggle(MovementTab, "NoClip", Config.Movement.NoClip, function(v)
+        Config.Movement.NoClip = v
+        NoClipActive = v
+        if not NoClipActive then
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end
+    end)
     addKeybind(MovementTab, "Touche NoClip", Config.Movement.NoClipKey, function(v) Config.Movement.NoClipKey = v end)
     addToggle(MovementTab, "Speed Hack", Config.Movement.SpeedHack.Enabled, function(v) Config.Movement.SpeedHack.Enabled = v end)
     addSlider(MovementTab, "Valeur Vitesse", 16, 500, Config.Movement.SpeedHack.Value, function(v) Config.Movement.SpeedHack.Value = v end)
@@ -2765,12 +2779,11 @@ UserInputService.InputBegan:Connect(function(input, gp)
         toggleFly()
     end
 
-    if input.KeyCode == Config.Movement.NoClipKey then
-        Config.Movement.NoClip = not Config.Movement.NoClip
-        log("NoClip: " .. (Config.Movement.NoClip and "Activé" or "Désactivé"))
-        
-        -- Réinitialiser les collisions immédiatement si désactivé
-        if not Config.Movement.NoClip then
+    if input.KeyCode == Config.Movement.NoClipKey and Config.Movement.NoClip then
+        NoClipActive = not NoClipActive
+        log("NoClip: " .. (NoClipActive and "Activé" or "Désactivé"))
+
+        if not NoClipActive then
             local char = LocalPlayer.Character
             if char then
                 for _, part in pairs(char:GetDescendants()) do
@@ -2855,6 +2868,7 @@ local function runTests()
 end
 
 loadConfig()
+NoClipActive = Config.Movement.NoClip
 runTests()
 Library:CreateWindow()
 print("💎 PRO TOOL V3.3 - TOOL V3.3 - TOUS LES ONGLETS CORRIGÉS ✅")
