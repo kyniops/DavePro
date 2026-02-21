@@ -132,7 +132,8 @@ local Config = {
         TimeChanger = {Enabled = false, Time = 12},
         Crosshair = {Enabled = false, Size = 15, Color = Color3.fromRGB(0, 255, 0)},
         StreamerMode = false,
-        AntiLag = false
+        AntiLag = false,
+        RainbowMode = false
     },
     Misc = {
         AntiAFK = true,
@@ -209,6 +210,7 @@ local SpinAngle = 0
 local LastJumpTime = 0
 local Logs = {}
 local Hitboxes = {}
+local UpdateMenuThemeFn = nil
 local function log(msg)
     table.insert(Logs, "[" .. os.date("%X") .. "] " .. msg)
     if #Logs > 50 then table.remove(Logs, 1) end
@@ -272,6 +274,11 @@ local function worldToScreen(position)
     local Camera = getCamera()
     local screenPos, onScreen = Camera:WorldToViewportPoint(position)
     return Vector2.new(screenPos.X, screenPos.Y), onScreen, screenPos.Z
+end
+
+local function getRainbowColor()
+    local t = tick() % 5 / 5
+    return Color3.fromHSV(t, 1, 1)
 end
 
 local function isPNJOrDie()
@@ -341,7 +348,6 @@ local function getClosestPlayerInFOV()
         
         local myChar = LocalPlayer.Character
         if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then continue end
-        if (part.Position - myChar.HumanoidRootPart.Position).Magnitude > Config.Aimbot.MaxDistance then continue end
         
         local screenPos, onScreen = worldToScreen(part.Position)
         if not onScreen then continue end
@@ -606,16 +612,6 @@ local function updateESP()
         local cam = getCamera()
         local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local distance = myHrp and (hrp.Position - myHrp.Position).Magnitude or 0
-        
-        if distance > Config.ESP.MaxDistance then
-            for _, v in pairs(data.Box) do v.Visible = false end
-            for _, v in pairs(data.HealthBar) do v.Visible = false end
-            for _, v in pairs(data.Skeleton) do v.Visible = false end
-            if data.Tracer then data.Tracer.Visible = false end
-            if data.Highlight then data.Highlight.Enabled = false end
-            data.Text.Visible = false
-            continue
-        end
 
         if Config.ESP.TeamCheck and not isPNJOrDie() and player.Team == LocalPlayer.Team then
             for _, v in pairs(data.Box) do v.Visible = false end
@@ -659,6 +655,7 @@ local function updateESP()
             local bl, os3 = getP(-w/2, -h/2)
             local br, os4 = getP(w/2, -h/2)
             
+            local espColor = Config.Visuals.RainbowMode and getRainbowColor() or Color3.fromRGB(Config.ESP.Color.R, Config.ESP.Color.G, Config.ESP.Color.B)
             local boxVis = os1 and os2 and os3 and os4 and Config.ESP.Boxes
             data.Box.T.Visible, data.Box.T.From, data.Box.T.To = boxVis, tl, tr
             data.Box.B.Visible, data.Box.B.From, data.Box.B.To = boxVis, bl, br
@@ -666,7 +663,6 @@ local function updateESP()
             data.Box.R.Visible, data.Box.R.From, data.Box.R.To = boxVis, tr, br
             
             if boxVis then
-                local espColor = Color3.fromRGB(Config.ESP.Color.R, Config.ESP.Color.G, Config.ESP.Color.B)
                 for _, l in pairs(data.Box) do l.Color = espColor end
             end
             
@@ -711,7 +707,7 @@ local function updateESP()
                                 line.Visible = true
                                 line.From = s1
                                 line.To = s2
-                                line.Color = Color3.fromRGB(Config.ESP.Color.R, Config.ESP.Color.G, Config.ESP.Color.B)
+                                line.Color = espColor
                             else
                                 line.Visible = false
                             end
@@ -745,7 +741,7 @@ local function updateESP()
                 data.Tracer.Visible = true
                 data.Tracer.From = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y)
                 data.Tracer.To = screenPos
-                data.Tracer.Color = Color3.fromRGB(Config.ESP.Color.R, Config.ESP.Color.G, Config.ESP.Color.B)
+                data.Tracer.Color = espColor
             else
                 data.Tracer.Visible = false
             end
@@ -763,7 +759,7 @@ local function updateESP()
                     end
                     if Config.ESP.Distance then t = t .. "[" .. math.floor(distance) .. "m]" end
                     data.Text.Text = t
-                    data.Text.Color = Color3.new(1,1,1)
+                    data.Text.Color = Config.Visuals.RainbowMode and espColor or Color3.new(1,1,1)
                 else
                     data.Text.Visible = false
                 end
@@ -1724,7 +1720,6 @@ function Library:CreateWindow()
     addToggle(AimbotTab, "Sticky Lock", Config.Aimbot.Sticky, function(v) Config.Aimbot.Sticky = v end)
     addToggle(AimbotTab, "Auto Shoot", Config.Aimbot.AutoShoot, function(v) Config.Aimbot.AutoShoot = v end)
     addToggle(AimbotTab, "Tirs droits (No Spread)", Config.Aimbot.StraightBullets, function(v) Config.Aimbot.StraightBullets = v end)
-    addSlider(AimbotTab, "Distance Max", 100, 5000, Config.Aimbot.MaxDistance, function(v) Config.Aimbot.MaxDistance = v end)
     addButton(AimbotTab, "Cible: Tête", function() Config.Aimbot.TargetPart = "Head" log("Cible: Head") end)
     addButton(AimbotTab, "Cible: Torse", function() Config.Aimbot.TargetPart = "HumanoidRootPart" log("Cible: Torso") end)
 
@@ -1739,7 +1734,6 @@ function Library:CreateWindow()
     addToggle(ESPTab, "Team Check", Config.ESP.TeamCheck, function(v) Config.ESP.TeamCheck = v end)
     addToggle(ESPTab, "Visible Uniquement", Config.ESP.VisibleOnly, function(v) Config.ESP.VisibleOnly = v end)
     addToggle(ESPTab, "ESP Loot/Items", false, function(v) log("ESP Loot: " .. tostring(v)) end)
-    addSlider(ESPTab, "Distance Max", 100, 10000, Config.ESP.MaxDistance, function(v) Config.ESP.MaxDistance = v end)
     
     -- Visuals Content
     addToggle(VisualsTab, "Chams (Wallhack)", Config.Visuals.Chams, function(v) Config.Visuals.Chams = v end)
@@ -1753,6 +1747,7 @@ function Library:CreateWindow()
     addToggle(VisualsTab, "Viseur (Crosshair)", Config.Visuals.Crosshair.Enabled, function(v) Config.Visuals.Crosshair.Enabled = v end)
     addToggle(VisualsTab, "Anti-Lag (FPS Boost)", Config.Visuals.AntiLag, function(v) Config.Visuals.AntiLag = v end)
     addToggle(VisualsTab, "Mode Streamer", Config.Visuals.StreamerMode, function(v) Config.Visuals.StreamerMode = v end)
+    addToggle(VisualsTab, "Mode Rainbow", Config.Visuals.RainbowMode, function(v) Config.Visuals.RainbowMode = v end)
     
     local function createColorSection(parent, title, configPath, callback)
         local frame = Instance.new("Frame")
@@ -1813,6 +1808,7 @@ function Library:CreateWindow()
     end
 
     local function updateMenuTheme(color)
+        local oldAccent = Theme.Accent
         Theme.Accent = color
         if RestoreBtn then RestoreBtn.TextColor3 = color end
         if RestoreStroke then RestoreStroke.Color = color end
@@ -1820,15 +1816,15 @@ function Library:CreateWindow()
         
         -- Mise à jour dynamique des éléments visuels
         for _, obj in pairs(ScreenGui:GetDescendants()) do
-            if obj:IsA("TextButton") and obj.BackgroundColor3 == Theme.Accent then
+            if obj:IsA("TextButton") and obj.BackgroundColor3 == oldAccent then
                 obj.BackgroundColor3 = color
-            elseif obj:IsA("UIStroke") and obj.Color == Theme.Accent then
+            elseif obj:IsA("UIStroke") and obj.Color == oldAccent then
                 obj.Color = color
-            elseif obj:IsA("TextLabel") and obj.TextColor3 == Theme.Accent then
+            elseif obj:IsA("TextLabel") and obj.TextColor3 == oldAccent then
                 obj.TextColor3 = color
-            elseif obj:IsA("ScrollingFrame") and obj.ScrollBarImageColor3 == Theme.Accent then
+            elseif obj:IsA("ScrollingFrame") and obj.ScrollBarImageColor3 == oldAccent then
                 obj.ScrollBarImageColor3 = color
-            elseif obj:IsA("Frame") and obj.BackgroundColor3 == Theme.Accent then
+            elseif obj:IsA("Frame") and obj.BackgroundColor3 == oldAccent then
                 obj.BackgroundColor3 = color
             end
         end
@@ -1838,6 +1834,7 @@ function Library:CreateWindow()
             currentTab.Btn.TextColor3 = color
             currentTab.Indicator.BackgroundColor3 = color
         end
+        UpdateMenuThemeFn = updateMenuTheme
     end
 
     createColorSection(VisualsTab, "Couleur Menu", Config.Visuals.AccentColor, updateMenuTheme)
@@ -2588,6 +2585,11 @@ local CrosshairT = createDrawing("Line", {Thickness = 1, Color = Color3.new(0, 1
 local CrosshairB = createDrawing("Line", {Thickness = 1, Color = Color3.new(0, 1, 0), Transparency = 1, Visible = false})
 
 local function updateVisuals()
+    if Config.Visuals.RainbowMode and UpdateMenuThemeFn then
+        local color = getRainbowColor()
+        UpdateMenuThemeFn(color)
+    end
+
     if Config.Visuals.FullBright then
         game:GetService("Lighting").Brightness = 2
         game:GetService("Lighting").ClockTime = 14
@@ -2705,7 +2707,8 @@ RunService.RenderStepped:Connect(function()
         local cam = getCamera()
         FOVCircle.Position = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
         FOVCircle.Radius = Config.Aimbot.FOV
-        FOVCircle.Color = Color3.fromRGB(Config.Visuals.FOVColorRGB.R, Config.Visuals.FOVColorRGB.G, Config.Visuals.FOVColorRGB.B)
+        local fovColor = Config.Visuals.RainbowMode and getRainbowColor() or Color3.fromRGB(Config.Visuals.FOVColorRGB.R, Config.Visuals.FOVColorRGB.G, Config.Visuals.FOVColorRGB.B)
+        FOVCircle.Color = fovColor
         FOVCircle.Transparency = Config.Visuals.FOVTransparency
     end
     if FpsLabel and PingLabel then
