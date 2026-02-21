@@ -211,6 +211,7 @@ local LastJumpTime = 0
 local Logs = {}
 local Hitboxes = {}
 local UpdateMenuThemeFn = nil
+local TitleLabel = nil
 local function log(msg)
     table.insert(Logs, "[" .. os.date("%X") .. "] " .. msg)
     if #Logs > 50 then table.remove(Logs, 1) end
@@ -1234,6 +1235,7 @@ function Library:CreateWindow()
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 18
     Title.Parent = Sidebar
+    TitleLabel = Title
     
     do
         local dragging = false
@@ -2585,9 +2587,14 @@ local CrosshairT = createDrawing("Line", {Thickness = 1, Color = Color3.new(0, 1
 local CrosshairB = createDrawing("Line", {Thickness = 1, Color = Color3.new(0, 1, 0), Transparency = 1, Visible = false})
 
 local function updateVisuals()
-    if Config.Visuals.RainbowMode and UpdateMenuThemeFn then
+    if Config.Visuals.RainbowMode then
         local color = getRainbowColor()
-        UpdateMenuThemeFn(color)
+        if TitleLabel then
+            TitleLabel.TextColor3 = color
+        end
+    elseif TitleLabel then
+        local accent = Config.Visuals.AccentColor
+        TitleLabel.TextColor3 = Color3.fromRGB(accent.R, accent.G, accent.B)
     end
 
     if Config.Visuals.FullBright then
